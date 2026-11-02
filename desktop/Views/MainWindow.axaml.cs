@@ -1,7 +1,11 @@
 using System.IO;
+using System.Reflection;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using QRCoder;
 using Veyqo.Desktop.Network;
@@ -13,12 +17,68 @@ public partial class MainWindow : Window
     private readonly RemoteClient _client = new();
     private string _localIp = "127.0.0.1";
     private readonly int _serverPort = 55443;
+    private bool _isFollowSystemTheme = true;
 
     public MainWindow()
     {
         InitializeComponent();
+        InitializeVersionInfo();
+        InitializeTheme();
         InitializeNetwork();
         HookEvents();
+    }
+
+    private void InitializeVersionInfo()
+    {
+        var version = Assembly.GetExecutingAssembly().GetName().Version;
+        string verString = version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "1.0.0";
+        VersionText.Text = $"Veyqo v{verString} (Official Build)";
+    }
+
+    private void InitializeTheme()
+    {
+        UpdateThemeVisuals();
+        ActualThemeVariantChanged += (_, _) =>
+        {
+            if (_isFollowSystemTheme)
+            {
+                UpdateThemeVisuals();
+            }
+        };
+    }
+
+    private void UpdateThemeVisuals()
+    {
+        bool isDark = ActualThemeVariant == ThemeVariant.Dark;
+
+        /* Apply dynamic palette adjustments */
+        if (isDark)
+        {
+            Background = new SolidColorBrush(Color.Parse("#0b0f19"));
+            SidebarBorder.Background = new SolidColorBrush(Color.Parse("#111827"));
+            SidebarBorder.BorderBrush = new SolidColorBrush(Color.Parse("#1f2937"));
+            VersionBannerBorder.Background = new SolidColorBrush(Color.Parse("#1e293b"));
+            StatusCardBorder.Background = new SolidColorBrush(Color.Parse("#1f2937"));
+            QrCardBorder.Background = new SolidColorBrush(Color.Parse("#1e293b"));
+            DirectConnectBorder.Background = new SolidColorBrush(Color.Parse("#1f2937"));
+            ViewportBackgroundBorder.Background = new SolidColorBrush(Color.Parse("#030712"));
+            ThemeModeButton.Content = "☀️";
+        }
+        else
+        {
+            Background = new SolidColorBrush(Color.Parse("#f8fafc"));
+            SidebarBorder.Background = new SolidColorBrush(Color.Parse("#ffffff"));
+            SidebarBorder.BorderBrush = new SolidColorBrush(Color.Parse("#e2e8f0"));
+            VersionBannerBorder.Background = new SolidColorBrush(Color.Parse("#f1f5f9"));
+            StatusCardBorder.Background = new SolidColorBrush(Color.Parse("#f8fafc"));
+            QrCardBorder.Background = new SolidColorBrush(Color.Parse("#f1f5f9"));
+            DirectConnectBorder.Background = new SolidColorBrush(Color.Parse("#f8fafc"));
+            ViewportBackgroundBorder.Background = new SolidColorBrush(Color.Parse("#f1f5f9"));
+            ThemeModeButton.Content = "🌙";
+        }
+
+        string modeName = isDark ? "Dark" : "Light";
+        ThemeLabelText.Text = _isFollowSystemTheme ? $"{modeName} (OS)" : modeName;
     }
 
     private void InitializeNetwork()
@@ -26,7 +86,7 @@ public partial class MainWindow : Window
         _localIp = NetworkDiscovery.GetLocalIpAddress();
         LocalIpText.Text = $"Host: {_localIp}:{_serverPort}";
 
-        /* Generate QR Code for Mobile Scanning */
+        /* Generate pairing QR code */
         string payload = NetworkDiscovery.BuildConnectionPayload(_localIp, _serverPort, Guid.NewGuid().ToString("N"));
         using var qrGenerator = new QRCodeGenerator();
         using var qrData = qrGenerator.CreateQrCode(payload, QRCodeGenerator.ECCLevel.Q);
@@ -41,6 +101,30 @@ public partial class MainWindow : Window
     {
         ConnectButton.Click += async (_, _) => await HandleConnectAsync();
         DisconnectButton.Click += async (_, _) => await HandleDisconnectAsync();
+
+        ThemeModeButton.Click += (_, _) =>
+        {
+            _isFollowSystemTheme = false;
+            var app = Application.Current;
+            if (app != null)
+            {
+                app.RequestedThemeVariant = app.ActualThemeVariant == ThemeVariant.Dark
+                    ? ThemeVariant.Light
+                    : ThemeVariant.Dark;
+            }
+            UpdateThemeVisuals();
+        };
+
+        ThemeAutoButton.Click += (_, _) =>
+        {
+            _isFollowSystemTheme = true;
+            var app = Application.Current;
+            if (app != null)
+            {
+                app.RequestedThemeVariant = ThemeVariant.Default;
+            }
+            UpdateThemeVisuals();
+        };
 
         _client.OnFrameReceived += HandleFrameReceived;
         _client.OnDisconnected += HandleDisconnected;
@@ -109,7 +193,7 @@ public partial class MainWindow : Window
             }
             catch
             {
-                /* Drop corrupted frame gracefully */
+                /* Ignore malformed frames */
             }
         });
     }

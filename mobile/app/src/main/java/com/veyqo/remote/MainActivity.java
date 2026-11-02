@@ -1,14 +1,20 @@
 package com.veyqo.remote;
 
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
+import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 
 import com.google.zxing.integration.android.IntentIntegrator;
 import com.google.zxing.integration.android.IntentResult;
@@ -21,8 +27,15 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
+    private static final String PREFS_NAME = "veyqo_theme_prefs";
+    private static final String KEY_THEME_MODE = "theme_mode";
+
     private TextView textServerStatus;
     private TextView textIpAddress;
+    private TextView textVersionBanner;
+    private TextView textThemeStatus;
+    private ImageButton btnToggleTheme;
+    private ImageButton btnAutoTheme;
     private Button btnToggleServer;
     private Button btnScanQr;
     private Button btnEnableAccessibility;
@@ -36,10 +49,15 @@ public class MainActivity extends AppCompatActivity {
 
         textServerStatus = findViewById(R.id.textServerStatus);
         textIpAddress = findViewById(R.id.textIpAddress);
+        textVersionBanner = findViewById(R.id.textVersionBanner);
+        textThemeStatus = findViewById(R.id.textThemeStatus);
+        btnToggleTheme = findViewById(R.id.btnToggleTheme);
+        btnAutoTheme = findViewById(R.id.btnAutoTheme);
         btnToggleServer = findViewById(R.id.btnToggleServer);
         btnScanQr = findViewById(R.id.btnScanQr);
         btnEnableAccessibility = findViewById(R.id.btnEnableAccessibility);
 
+        initVersionAndThemeBanner();
         updateIpAddress();
 
         btnToggleServer.setOnClickListener(v -> toggleServer());
@@ -48,6 +66,59 @@ public class MainActivity extends AppCompatActivity {
             Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
             startActivity(intent);
         });
+
+        btnToggleTheme.setOnClickListener(v -> toggleThemeMode());
+        btnAutoTheme.setOnClickListener(v -> setFollowSystemTheme());
+    }
+
+    private void initVersionAndThemeBanner() {
+        String versionName = "1.0.0";
+        try {
+            PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
+            versionName = pInfo.versionName;
+        } catch (Exception ignored) {
+        }
+        textVersionBanner.setText("● Veyqo v" + versionName + " (Official Build)");
+
+        updateThemeBannerText();
+    }
+
+    private void updateThemeBannerText() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        int mode = prefs.getInt(KEY_THEME_MODE, AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
+
+        int currentNightMode = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        boolean isDark = currentNightMode == Configuration.UI_MODE_NIGHT_YES;
+        String modeString = isDark ? "Dark" : "Light";
+
+        if (mode == AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM) {
+            textThemeStatus.setText(modeString + " (OS)");
+        } else {
+            textThemeStatus.setText(modeString);
+        }
+    }
+
+    private void toggleThemeMode() {
+        int currentNightMode = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        int nextMode = (currentNightMode == Configuration.UI_MODE_NIGHT_YES)
+                ? AppCompatDelegate.MODE_NIGHT_NO
+                : AppCompatDelegate.MODE_NIGHT_YES;
+
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putInt(KEY_THEME_MODE, nextMode)
+                .apply();
+
+        AppCompatDelegate.setDefaultNightMode(nextMode);
+    }
+
+    private void setFollowSystemTheme() {
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putInt(KEY_THEME_MODE, AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+                .apply();
+
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
     }
 
     private void updateIpAddress() {
@@ -114,4 +185,3 @@ public class MainActivity extends AppCompatActivity {
         return "127.0.0.1";
     }
 }
-

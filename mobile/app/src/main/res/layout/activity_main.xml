@@ -1,34 +1,103 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0F172A"
+    android:background="@color/bg_main"
     android:orientation="vertical"
-    android:padding="24dp">
+    android:padding="20dp">
 
-    <!-- Header -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Veyqo"
-        android:textColor="#FFFFFF"
-        android:textSize="28sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="Seamless Local Remote Hub"
-        android:textColor="#94A3B8"
-        android:textSize="14sp" />
-
-    <!-- Network Card -->
-    <androidx.cardview.widget.CardView xmlns:app="http://schemas.android.com/apk/res-auto"
+    <!-- Top Header Bar with Theme Controls -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        app:cardBackgroundColor="#1E293B"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Veyqo"
+                android:textColor="@color/text_primary"
+                android:textSize="26sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Seamless Local Remote Hub"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <!-- Mode Toggle & Follow OS Buttons -->
+        <ImageButton
+            android:id="@+id/btnToggleTheme"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_day"
+            android:contentDescription="Toggle Theme Mode" />
+
+        <ImageButton
+            android:id="@+id/btnAutoTheme"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_marginStart="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_manage"
+            android:contentDescription="Follow OS Theme" />
+    </LinearLayout>
+
+    <!-- Version & Theme Banner -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        app:cardBackgroundColor="@color/banner_bg"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="0dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="10dp">
+
+            <TextView
+                android:id="@+id/textVersionBanner"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="● Veyqo v1.0.0 (Official Build)"
+                android:textColor="#10B981"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/textThemeStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Dark (OS)"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp" />
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Network Server Card -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        app:cardBackgroundColor="@color/card_bg"
         app:cardCornerRadius="12dp"
         app:cardElevation="0dp">
 
@@ -42,7 +111,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="SERVER LISTENER"
-                android:textColor="#64748B"
+                android:textColor="@color/text_secondary"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -62,31 +131,30 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="IP: --"
-                android:textColor="#94A3B8"
+                android:textColor="@color/text_secondary"
                 android:textSize="13sp" />
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
-    <!-- Control Mode 1: Host Mode (Open Port for PC) -->
+    <!-- Action Buttons -->
     <Button
         android:id="@+id/btnToggleServer"
         android:layout_width="match_parent"
-        android:layout_height="56dp"
+        android:layout_height="54dp"
         android:layout_marginTop="20dp"
-        android:backgroundTint="#4F46E5"
+        android:backgroundTint="@color/accent"
         android:text="Start Remote Server"
         android:textAllCaps="false"
         android:textColor="#FFFFFF"
         android:textSize="15sp"
         android:textStyle="bold" />
 
-    <!-- Control Mode 2: Client Mode (Scan PC QR Code) -->
     <Button
         android:id="@+id/btnScanQr"
         android:layout_width="match_parent"
-        android:layout_height="56dp"
+        android:layout_height="54dp"
         android:layout_marginTop="12dp"
-        android:backgroundTint="#1E293B"
+        android:backgroundTint="@color/card_bg"
         android:text="Scan PC QR Code"
         android:textAllCaps="false"
         android:textColor="#38BDF8"
@@ -96,12 +164,12 @@
     <Button
         android:id="@+id/btnEnableAccessibility"
         android:layout_width="match_parent"
-        android:layout_height="50dp"
+        android:layout_height="48dp"
         android:layout_marginTop="12dp"
-        android:backgroundTint="#334155"
+        android:backgroundTint="@color/card_border"
         android:text="Grant Input Permission"
         android:textAllCaps="false"
-        android:textColor="#E2E8F0"
+        android:textColor="@color/text_primary"
         android:textSize="13sp" />
 
 </LinearLayout>
