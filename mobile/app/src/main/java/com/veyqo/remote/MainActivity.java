@@ -207,6 +207,7 @@ public class MainActivity extends AppCompatActivity {
         int currentNightMode = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
         boolean isDark = currentNightMode == Configuration.UI_MODE_NIGHT_YES;
 
+        /* When dark theme is active, show the sun icon to switch to day/light; when light, show moon to switch to dark */
         btnToggleTheme.setImageResource(isDark ? R.drawable.ic_theme_day : R.drawable.ic_theme_night);
         textThemeStatus.setText(isDark ? "Dark" : "Light");
     }

@@ -97,11 +97,25 @@
                     <TextBlock Text="Pair using the QR code or enter mobile port directly" FontSize="13" Opacity="0.7" HorizontalAlignment="Center"/>
                 </StackPanel>
 
-                <!-- Remote Device Viewport -->
+                <!-- Remote Device Viewport & Navigation Bar -->
                 <Border Name="ViewportBorder" CornerRadius="12" ClipToBounds="True" IsVisible="False"
                         HorizontalAlignment="Center" VerticalAlignment="Center"
                         BorderBrush="#475569" BorderThickness="1">
-                    <Image Name="RemoteScreenImage" Stretch="Uniform"/>
+                    <Grid RowDefinitions="*,44">
+                        <Image Grid.Row="0" Name="RemoteScreenImage" Stretch="Uniform" Focusable="True"/>
+                        
+                        <!-- Mobile Navigation Bar -->
+                        <Border Grid.Row="1" Background="#111827" BorderBrush="#1f2937" BorderThickness="0,1,0,0">
+                            <Grid ColumnDefinitions="*,*,*">
+                                <Button Grid.Column="0" Name="NavBackButton" Content="◀" FontSize="14" Foreground="#94a3b8"
+                                        Background="Transparent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                <Button Grid.Column="1" Name="NavHomeButton" Content="●" FontSize="14" Foreground="#94a3b8"
+                                        Background="Transparent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                <Button Grid.Column="2" Name="NavRecentsButton" Content="■" FontSize="14" Foreground="#94a3b8"
+                                        Background="Transparent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
                 </Border>
             </Grid>
         </Border>

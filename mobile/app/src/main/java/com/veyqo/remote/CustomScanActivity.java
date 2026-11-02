@@ -25,12 +25,13 @@ public class CustomScanActivity extends AppCompatActivity {
 
         barcodeScannerView = findViewById(R.id.zxing_barcode_scanner);
 
-        /* Configure fast autofocus and QR code decoding hint */
+        /* Configure fast continuous autofocus */
         CameraSettings cameraSettings = new CameraSettings();
         cameraSettings.setAutoFocusEnabled(true);
         cameraSettings.setContinuousFocusEnabled(true);
         barcodeScannerView.getBarcodeView().setCameraSettings(cameraSettings);
 
+        /* Use DefaultDecoderFactory for QR_CODE with inverted and multi-format support */
         Map<DecodeHintType, Object> hints = new HashMap<>();
         hints.put(DecodeHintType.POSSIBLE_FORMATS, Collections.singletonList(BarcodeFormat.QR_CODE));
         hints.put(DecodeHintType.TRY_HARDER, Boolean.TRUE);

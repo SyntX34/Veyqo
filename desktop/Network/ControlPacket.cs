@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace Veyqo.Desktop.Network;
 
-/* Remote control message envelope exchanged over TCP/WebSocket */
+/* Remote control message envelope exchanged over TCP socket */
 public enum ControlMessageType
 {
     Handshake = 1,
@@ -12,8 +12,13 @@ public enum ControlMessageType
     KeyEvent = 5,
     TextInject = 6,
     Heartbeat = 7,
-    DeviceMetrics = 8,
-    Disconnect = 9
+    Swipe = 8,
+    Scroll = 9,
+    NavBack = 10,
+    NavHome = 11,
+    NavRecents = 12,
+    DeviceMetrics = 13,
+    Disconnect = 14
 }
 
 public sealed class ControlPacket
@@ -26,6 +31,15 @@ public sealed class ControlPacket
 
     [JsonPropertyName("y")]
     public float Y { get; set; }
+
+    [JsonPropertyName("endX")]
+    public float EndX { get; set; }
+
+    [JsonPropertyName("endY")]
+    public float EndY { get; set; }
+
+    [JsonPropertyName("durationMs")]
+    public long DurationMs { get; set; }
 
     [JsonPropertyName("keyCode")]
     public int KeyCode { get; set; }

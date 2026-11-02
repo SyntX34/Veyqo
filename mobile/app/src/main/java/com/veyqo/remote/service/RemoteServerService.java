@@ -102,8 +102,10 @@ public class RemoteServerService extends Service {
             if (ACTION_CONNECT_OUT.equals(action)) {
                 String host = intent.getStringExtra(EXTRA_HOST);
                 int port = intent.getIntExtra(EXTRA_PORT, DEFAULT_PORT);
-                connectToDesktop(host, port);
-                return START_STICKY;
+                if (host != null && !host.isEmpty()) {
+                    connectToDesktop(host, port);
+                    return START_STICKY;
+                }
             }
         }
 
@@ -242,8 +244,52 @@ public class RemoteServerService extends Service {
         float targetX = packet.x * screenWidth;
         float targetY = packet.y * screenHeight;
 
-        if (packet.type == ControlPacket.TYPE_TOUCH_DOWN || packet.type == ControlPacket.TYPE_TOUCH_UP) {
-            injectionService.injectTap(targetX, targetY);
+        switch (packet.type) {
+            case ControlPacket.TYPE_TOUCH_DOWN:
+            case ControlPacket.TYPE_TOUCH_UP:
+                injectionService.injectTap(targetX, targetY);
+                break;
+
+            case ControlPacket.TYPE_SWIPE:
+                float endX = packet.endX * screenWidth;
+                float endY = packet.endY * screenHeight;
+                long duration = packet.durationMs > 0 ? packet.durationMs : 250;
+                injectionService.injectSwipe(targetX, targetY, endX, endY, duration);
+                break;
+
+            case ControlPacket.TYPE_SCROLL:
+                injectionService.injectScroll(targetX, targetY, packet.y != 0 ? packet.y : 0.2f);
+                break;
+
+            case ControlPacket.TYPE_TEXT_INJECT:
+                if (packet.payload != null) {
+                    injectionService.injectText(packet.payload);
+                }
+                break;
+
+            case ControlPacket.TYPE_KEY_EVENT:
+                /* Special keys: Backspace (67), Enter (66), Escape / Back (4) */
+                if (packet.keyCode == 67) {
+                    injectionService.injectBackspace();
+                } else if (packet.keyCode == 4) {
+                    injectionService.injectBack();
+                }
+                break;
+
+            case ControlPacket.TYPE_NAV_BACK:
+                injectionService.injectBack();
+                break;
+
+            case ControlPacket.TYPE_NAV_HOME:
+                injectionService.injectHome();
+                break;
+
+            case ControlPacket.TYPE_NAV_RECENTS:
+                injectionService.injectRecents();
+                break;
+
+            default:
+                break;
         }
     }
 

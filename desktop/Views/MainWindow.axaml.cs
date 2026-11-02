@@ -20,6 +20,12 @@ public partial class MainWindow : Window
     private readonly int _serverPort = 55443;
     private bool _isFollowSystemTheme = true;
 
+    /* Pointer gesture tracking state */
+    private float _pointerDownX;
+    private float _pointerDownY;
+    private long _pointerDownTime;
+    private bool _isPointerActive;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -127,9 +133,10 @@ public partial class MainWindow : Window
             }
         };
 
-        AboutButton.Click += (_, _) =>
+        AboutButton.Click += async (_, _) =>
         {
-            StatusText.Text = $"Veyqo v{VersionInfo.Version} by Samir Neupane (SyntX34)";
+            var dialog = new AboutDialogWindow();
+            await dialog.ShowDialog(this);
         };
 
         ThemeModeButton.Click += (_, _) =>
@@ -147,9 +154,20 @@ public partial class MainWindow : Window
         _client.OnFrameReceived += HandleFrameReceived;
         _client.OnDisconnected += HandleDisconnected;
 
+        /* Pointer & Gesture events */
         RemoteScreenImage.PointerPressed += HandlePointerPressed;
         RemoteScreenImage.PointerMoved += HandlePointerMoved;
         RemoteScreenImage.PointerReleased += HandlePointerReleased;
+        RemoteScreenImage.PointerWheelChanged += HandlePointerWheelChanged;
+
+        /* Android Navigation Buttons */
+        NavBackButton.Click += (_, _) => SendControlPacket(new ControlPacket { Type = ControlMessageType.NavBack });
+        NavHomeButton.Click += (_, _) => SendControlPacket(new ControlPacket { Type = ControlMessageType.NavHome });
+        NavRecentsButton.Click += (_, _) => SendControlPacket(new ControlPacket { Type = ControlMessageType.NavRecents });
+
+        /* Keyboard input forwarding */
+        KeyDown += HandleKeyDown;
+        TextInput += HandleTextInput;
     }
 
     private void HandleServerClientConnected(string remoteEndpoint)
@@ -161,6 +179,7 @@ public partial class MainWindow : Window
             DisconnectButton.IsVisible = true;
             StandbyPanel.IsVisible = false;
             ViewportBorder.IsVisible = true;
+            RemoteScreenImage.Focus();
         });
     }
 
@@ -187,6 +206,7 @@ public partial class MainWindow : Window
             DisconnectButton.IsVisible = true;
             StandbyPanel.IsVisible = false;
             ViewportBorder.IsVisible = true;
+            RemoteScreenImage.Focus();
         }
         catch (Exception ex)
         {
@@ -235,29 +255,35 @@ public partial class MainWindow : Window
         });
     }
 
+    private void SendControlPacket(ControlPacket packet)
+    {
+        _ = _client.SendPacketAsync(packet);
+        _ = _server.SendPacketAsync(packet);
+    }
+
     private void HandlePointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        RemoteScreenImage.Focus();
         var point = e.GetCurrentPoint(RemoteScreenImage);
         var size = RemoteScreenImage.Bounds;
         if (size.Width <= 0 || size.Height <= 0) return;
 
-        float normX = (float)(point.Position.X / size.Width);
-        float normY = (float)(point.Position.Y / size.Height);
+        _pointerDownX = (float)(point.Position.X / size.Width);
+        _pointerDownY = (float)(point.Position.Y / size.Height);
+        _pointerDownTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        _isPointerActive = true;
 
-        var packet = new ControlPacket
+        SendControlPacket(new ControlPacket
         {
             Type = ControlMessageType.TouchDown,
-            X = normX,
-            Y = normY
-        };
-
-        _ = _client.SendPacketAsync(packet);
-        _ = _server.SendPacketAsync(packet);
+            X = _pointerDownX,
+            Y = _pointerDownY
+        });
     }
 
     private void HandlePointerMoved(object? sender, PointerEventArgs e)
     {
-        if (!e.GetCurrentPoint(RemoteScreenImage).Properties.IsLeftButtonPressed) return;
+        if (!_isPointerActive || !e.GetCurrentPoint(RemoteScreenImage).Properties.IsLeftButtonPressed) return;
 
         var point = e.GetCurrentPoint(RemoteScreenImage);
         var size = RemoteScreenImage.Bounds;
@@ -266,18 +292,56 @@ public partial class MainWindow : Window
         float normX = (float)(point.Position.X / size.Width);
         float normY = (float)(point.Position.Y / size.Height);
 
-        var packet = new ControlPacket
+        SendControlPacket(new ControlPacket
         {
             Type = ControlMessageType.TouchMove,
             X = normX,
             Y = normY
-        };
-
-        _ = _client.SendPacketAsync(packet);
-        _ = _server.SendPacketAsync(packet);
+        });
     }
 
     private void HandlePointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (!_isPointerActive) return;
+        _isPointerActive = false;
+
+        var point = e.GetCurrentPoint(RemoteScreenImage);
+        var size = RemoteScreenImage.Bounds;
+        if (size.Width <= 0 || size.Height <= 0) return;
+
+        float releaseX = (float)(point.Position.X / size.Width);
+        float releaseY = (float)(point.Position.Y / size.Height);
+        long elapsed = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _pointerDownTime;
+
+        float deltaX = releaseX - _pointerDownX;
+        float deltaY = releaseY - _pointerDownY;
+        float distanceSquared = deltaX * deltaX + deltaY * deltaY;
+
+        /* If drag distance exceeds threshold, dispatch as a smooth gesture swipe */
+        if (distanceSquared > 0.002f)
+        {
+            SendControlPacket(new ControlPacket
+            {
+                Type = ControlMessageType.Swipe,
+                X = _pointerDownX,
+                Y = _pointerDownY,
+                EndX = releaseX,
+                EndY = releaseY,
+                DurationMs = Math.Clamp(elapsed, 150, 600)
+            });
+        }
+        else
+        {
+            SendControlPacket(new ControlPacket
+            {
+                Type = ControlMessageType.TouchUp,
+                X = releaseX,
+                Y = releaseY
+            });
+        }
+    }
+
+    private void HandlePointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         var point = e.GetCurrentPoint(RemoteScreenImage);
         var size = RemoteScreenImage.Bounds;
@@ -285,15 +349,111 @@ public partial class MainWindow : Window
 
         float normX = (float)(point.Position.X / size.Width);
         float normY = (float)(point.Position.Y / size.Height);
+        float scrollDelta = (float)e.Delta.Y;
 
-        var packet = new ControlPacket
+        SendControlPacket(new ControlPacket
         {
-            Type = ControlMessageType.TouchUp,
+            Type = ControlMessageType.Scroll,
             X = normX,
-            Y = normY
-        };
+            Y = scrollDelta
+        });
+    }
 
-        _ = _client.SendPacketAsync(packet);
-        _ = _server.SendPacketAsync(packet);
+    private void HandleTextInput(object? sender, TextInputEventArgs e)
+    {
+        if (string.IsNullOrEmpty(e.Text)) return;
+        if (!ViewportBorder.IsVisible) return;
+
+        SendControlPacket(new ControlPacket
+        {
+            Type = ControlMessageType.TextInject,
+            Payload = e.Text
+        });
+    }
+
+    private void HandleKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (!ViewportBorder.IsVisible) return;
+
+        switch (e.Key)
+        {
+            case Key.Back:
+                SendControlPacket(new ControlPacket
+                {
+                    Type = ControlMessageType.KeyEvent,
+                    KeyCode = 67 /* Android KEYCODE_DEL */
+                });
+                e.Handled = true;
+                break;
+
+            case Key.Enter:
+                SendControlPacket(new ControlPacket
+                {
+                    Type = ControlMessageType.KeyEvent,
+                    KeyCode = 66 /* Android KEYCODE_ENTER */
+                });
+                e.Handled = true;
+                break;
+
+            case Key.Escape:
+                SendControlPacket(new ControlPacket
+                {
+                    Type = ControlMessageType.NavBack
+                });
+                e.Handled = true;
+                break;
+
+            case Key.Left:
+                SendControlPacket(new ControlPacket
+                {
+                    Type = ControlMessageType.Swipe,
+                    X = 0.8f,
+                    Y = 0.5f,
+                    EndX = 0.2f,
+                    EndY = 0.5f,
+                    DurationMs = 250
+                });
+                e.Handled = true;
+                break;
+
+            case Key.Right:
+                SendControlPacket(new ControlPacket
+                {
+                    Type = ControlMessageType.Swipe,
+                    X = 0.2f,
+                    Y = 0.5f,
+                    EndX = 0.8f,
+                    EndY = 0.5f,
+                    DurationMs = 250
+                });
+                e.Handled = true;
+                break;
+
+            case Key.Up:
+                SendControlPacket(new ControlPacket
+                {
+                    Type = ControlMessageType.Swipe,
+                    X = 0.5f,
+                    Y = 0.7f,
+                    EndX = 0.5f,
+                    EndY = 0.3f,
+                    DurationMs = 250
+                });
+                e.Handled = true;
+                break;
+
+            case Key.Down:
+                SendControlPacket(new ControlPacket
+                {
+                    Type = ControlMessageType.Swipe,
+                    X = 0.5f,
+                    Y = 0.3f,
+                    EndX = 0.5f,
+                    EndY = 0.7f,
+                    DurationMs = 250
+                });
+                e.Handled = true;
+                break;
+        }
     }
 }

@@ -13,6 +13,15 @@ public class ControlPacket {
     @SerializedName("y")
     public float y;
 
+    @SerializedName("endX")
+    public float endX;
+
+    @SerializedName("endY")
+    public float endY;
+
+    @SerializedName("durationMs")
+    public long durationMs;
+
     @SerializedName("keyCode")
     public int keyCode;
 
@@ -29,4 +38,9 @@ public class ControlPacket {
     public static final int TYPE_KEY_EVENT = 5;
     public static final int TYPE_TEXT_INJECT = 6;
     public static final int TYPE_HEARTBEAT = 7;
+    public static final int TYPE_SWIPE = 8;
+    public static final int TYPE_SCROLL = 9;
+    public static final int TYPE_NAV_BACK = 10;
+    public static final int TYPE_NAV_HOME = 11;
+    public static final int TYPE_NAV_RECENTS = 12;
 }

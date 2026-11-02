@@ -1,0 +1,46 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Veyqo.Desktop.Views.AboutDialogWindow"
+        Title="About Veyqo"
+        Icon="/Assets/logo.ico"
+        Width="460" Height="360"
+        MinWidth="420" MinHeight="320"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="#0f172a">
+
+    <Grid RowDefinitions="*,Auto" Margin="24">
+        <StackPanel Grid.Row="0" Spacing="14" VerticalAlignment="Center">
+            <!-- Brand & Icon -->
+            <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                <Border Width="48" Height="48" CornerRadius="10" ClipToBounds="True" Background="#4f46e5">
+                    <Image Source="/Assets/logo.ico" Width="48" Height="48" Stretch="Uniform"/>
+                </Border>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Veyqo" FontSize="20" FontWeight="Bold" Foreground="#ffffff"/>
+                    <TextBlock Text="Local-First Remote Control Bridge" FontSize="12" Foreground="#94a3b8"/>
+                </StackPanel>
+            </StackPanel>
+
+            <Border Height="1" Background="#1e293b"/>
+
+            <!-- App Details -->
+            <StackPanel Spacing="8">
+                <TextBlock Name="VersionDetailText" Text="Version: v1.0.8" FontSize="13" Foreground="#38bdf8" FontWeight="SemiBold"/>
+                <TextBlock Text="High-performance, local-first peer-to-peer remote device bridge for Windows, Linux, and Android."
+                           TextWrapping="Wrap" FontSize="12" Foreground="#cbd5e1" LineHeight="18"/>
+                <TextBlock Text="Author: Samir Neupane (SyntX34)" FontSize="12" Foreground="#94a3b8"/>
+                <TextBlock Text="License: MIT License" FontSize="12" Foreground="#94a3b8"/>
+                <TextBlock Text="Repository: github.com/SyntX34/Veyqo" FontSize="12" Foreground="#94a3b8"/>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Actions -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+            <Button Grid.Column="0" Name="GithubLinkButton" Content="Open GitHub" Width="120"
+                    HorizontalContentAlignment="Center" Background="#1e293b" Foreground="#cbd5e1" FontSize="12"/>
+            <Button Grid.Column="1" Name="OkButton" Content="OK" Width="100"
+                    HorizontalContentAlignment="Center" Background="#4f46e5" Foreground="#ffffff" FontWeight="SemiBold"/>
+        </Grid>
+    </Grid>
+</Window>
