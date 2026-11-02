@@ -137,6 +137,20 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Install Packaging Tools (NSIS & WiX)
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
+          "C:\Program Files\NSIS" >> $env:GITHUB_PATH
+
+          $wixDir = Get-ChildItem -Path "C:\Program Files (x86)" -Filter "WiX Toolset*" -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($wixDir) {
+            "$($wixDir.FullName)\bin" >> $env:GITHUB_PATH
+          } else {
+            dotnet tool install --global wix || true
+          }
+
       - name: Inject Version into C# Source
         shell: pwsh
         run: |
@@ -162,14 +176,28 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist/installers
-          makensis /DPRODUCT_VERSION="${{ needs.resolve-version.outputs.full_version }}" packaging/windows/installer.nsi
+          $makensisPath = (Get-Command makensis.exe -ErrorAction SilentlyContinue)?.Source
+          if (-not $makensisPath) {
+            if (Test-Path "C:\Program Files (x86)\NSIS\makensis.exe") {
+              $makensisPath = "C:\Program Files (x86)\NSIS\makensis.exe"
+            } elseif (Test-Path "C:\Program Files\NSIS\makensis.exe") {
+              $makensisPath = "C:\Program Files\NSIS\makensis.exe"
+            }
+          }
+          & $makensisPath /DPRODUCT_VERSION="${{ needs.resolve-version.outputs.full_version }}" packaging/windows/installer.nsi
 
       - name: Build Windows Installer Package (.msi) via WiX Toolset
         shell: pwsh
         run: |
-          dotnet tool install --global wix || true
-          candle packaging/windows/Product.wxs -out dist/desktop/Product.wixobj
-          light -ext WixUIExtension dist/desktop/Product.wixobj -out "dist/installers/Veyqo-Setup-v${{ needs.resolve-version.outputs.full_version }}.msi" -b dist/desktop/win-x64
+          $candlePath = (Get-Command candle.exe -ErrorAction SilentlyContinue)?.Source
+          $lightPath = (Get-Command light.exe -ErrorAction SilentlyContinue)?.Source
+
+          if ($candlePath -and $lightPath) {
+            & $candlePath packaging/windows/Product.wxs -out dist/desktop/Product.wixobj
+            & $lightPath -ext WixUIExtension dist/desktop/Product.wixobj -out "dist/installers/Veyqo-Setup-v${{ needs.resolve-version.outputs.full_version }}.msi" -b dist/desktop/win-x64
+          } else {
+            wix build packaging/windows/Product.wxs -out "dist/installers/Veyqo-Setup-v${{ needs.resolve-version.outputs.full_version }}.msi"
+          }
 
       - name: Copy Standalone Portable Executable (.exe)
         shell: pwsh
