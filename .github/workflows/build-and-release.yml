@@ -78,20 +78,28 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: Generate Keystore for Release Signing
+        run: |
+          mkdir -p ~/.android
+          keytool -genkey -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Veyqo, OU=Veyqo, O=SyntX34, L=City, S=State, C=US"
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.2'
 
-      - name: Build Android Release APK
+      - name: Build Official Signed Release APK
         working-directory: mobile
-        run: gradle assembleRelease --stacktrace
+        run: |
+          gradle assembleRelease --stacktrace
+          mkdir -p ../dist/mobile
+          cp app/build/outputs/apk/release/*.apk ../dist/mobile/veyqo-mobile-v1.0.0-release.apk
 
       - name: Upload Mobile APK
         uses: actions/upload-artifact@v4
         with:
-          name: veyqo-mobile-apk
-          path: mobile/app/build/outputs/apk/release/*.apk
+          name: veyqo-mobile-release-apk
+          path: dist/mobile/*.apk
 
   release:
     name: Publish GitHub Release
@@ -135,4 +143,4 @@ jobs:
           files: |
             release-artifacts/**/veyqo-desktop-*.zip
             release-artifacts/**/veyqo-desktop-*.tar.gz
-            release-artifacts/**/*.apk
+            release-artifacts/**/veyqo-mobile-*.apk
