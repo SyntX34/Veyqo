@@ -44,3 +44,4 @@ public class CustomScanActivity extends AppCompatActivity {
         capture.onSaveInstanceState(outState);
     }
 }
+

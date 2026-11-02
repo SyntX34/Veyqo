@@ -3,13 +3,20 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <!-- Sun Center -->
+    <!-- Modern Minimalist Day Sun -->
+    <!-- Solid Center Core -->
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M12,6.5 A5.5,5.5 0 1,0 12,17.5 A5.5,5.5 0 1,0 12,6.5 Z" />
+    <!-- Clean Rounded Perimeter Flares -->
     <path
         android:fillColor="#F59E0B"
-        android:pathData="M12,7 A5,5 0 1,0 12,17 A5,5 0 1,0 12,7 Z" />
-    <!-- Sun Rays -->
-    <path
-        android:fillColor="#F59E0B"
-        android:pathData="M11,1h2v3h-2z M11,20h2v3h-2z M1,11h3v2h-3z M20,11h3v2h-3z M4.22,4.22l2.12,2.12l-1.41,1.41l-2.12,-2.12z M17.66,17.66l2.12,2.12l-1.41,1.41l-2.12,-2.12z M4.93,19.07l2.12,-2.12l1.41,1.41l-2.12,2.12z M18.36,5.64l2.12,-2.12l1.41,1.41l-2.12,2.12z" />
+        android:pathData="M11,1.5 h2 v2.5 h-2 Z 
+                         M11,20 h2 v2.5 h-2 Z 
+                         M1.5,11 h2.5 v2 h-2.5 Z 
+                         M20,11 h2.5 v2 h-2.5 Z 
+                         M4.27,4.27 l1.77,1.77 l-1.41,1.41 l-1.77,-1.77 Z 
+                         M17.96,17.96 l1.77,1.77 l-1.41,1.41 l-1.77,-1.77 Z 
+                         M4.63,19.37 l1.77,-1.77 l1.41,1.41 l-1.77,1.77 Z 
+                         M18.32,5.68 l1.77,-1.77 l1.41,1.41 l-1.77,1.77 Z" />
 </vector>
-

@@ -18,6 +18,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.app.ActivityCompat;
@@ -37,6 +38,8 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String PREFS_NAME = "veyqo_theme_prefs";
     private static final String KEY_THEME_MODE = "theme_mode";
+    private static final String GITHUB_REPO_URL = "https://github.com/SyntX34/Veyqo";
+    private static final int PERMISSION_REQUEST_CODE = 1001;
     private static final String GITHUB_REPO_URL = "https://github.com/SyntX34/Veyqo";
     private static final int PERMISSION_REQUEST_CODE = 1001;
 

@@ -15,8 +15,8 @@ SetCompressor /SOLID lzma
 
 ; MUI Settings
 !define MUI_ABORTWARNING
-!define MUI_ICON "${NSISDIR}\Contrib\Graphics\Icons\modern-install.ico"
-!define MUI_UNICON "${NSISDIR}\Contrib\Graphics\Icons\modern-uninstall.ico"
+!define MUI_ICON "logo.ico"
+!define MUI_UNICON "logo.ico"
 
 ; Pages
 !insertmacro MUI_PAGE_WELCOME
@@ -46,8 +46,8 @@ Section "MainSection" SEC01
 
   ; Shortcuts
   CreateDirectory "$SMPROGRAMS\Veyqo"
-  CreateShortcut "$SMPROGRAMS\Veyqo\Veyqo.lnk" "$INSTDIR\${PRODUCT_EXE}"
-  CreateShortcut "$DESKTOP\Veyqo.lnk" "$INSTDIR\${PRODUCT_EXE}"
+  CreateShortcut "$SMPROGRAMS\Veyqo\Veyqo.lnk" "$INSTDIR\${PRODUCT_EXE}" "" "$INSTDIR\${PRODUCT_EXE}" 0
+  CreateShortcut "$DESKTOP\Veyqo.lnk" "$INSTDIR\${PRODUCT_EXE}" "" "$INSTDIR\${PRODUCT_EXE}" 0
 SectionEnd
 
 Section -Post
@@ -55,7 +55,7 @@ Section -Post
   WriteRegStr HKLM "${PRODUCT_DIR_REGKEY}" "" "$INSTDIR\${PRODUCT_EXE}"
   WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayName" "${PRODUCT_NAME}"
   WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "UninstallString" "$INSTDIR\uninst.exe"
-  WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayIcon" "$INSTDIR\${PRODUCT_EXE}"
+  WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayIcon" "$INSTDIR\${PRODUCT_EXE},0"
   WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
   WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "URLInfoAbout" "${PRODUCT_WEB_SITE}"
   WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"

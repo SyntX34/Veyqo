@@ -224,11 +224,6 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Generate Keystore for Release Signing
-        run: |
-          mkdir -p ~/.android
-          keytool -genkey -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Veyqo, OU=Veyqo, O=SyntX34, L=City, S=State, C=US"
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
