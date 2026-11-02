@@ -272,8 +272,21 @@ jobs:
           TAG="${{ needs.resolve-version.outputs.tag_name }}"
           echo "## Veyqo Release ${TAG}" > CHANGELOG.md
           echo "" >> CHANGELOG.md
-          echo "### Commit History" >> CHANGELOG.md
-          git log -n 15 --pretty=format:"* [%h](https://github.com/${{ github.repository }}/commit/%H) - %s (@%an)" >> CHANGELOG.md
+          echo "### What's Changed" >> CHANGELOG.md
+
+          # Fetch all tags so we can determine the previous release tag
+          git fetch --tags --force || true
+          PREV_TAG=$(git tag --sort=-creatordate | head -n 1 || echo "")
+
+          if [ -n "$PREV_TAG" ]; then
+            echo "*Changes since tag \`${PREV_TAG}\`:*" >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            git log "${PREV_TAG}..HEAD" --pretty=format:"* [%h](https://github.com/${{ github.repository }}/commit/%H) - %s (@%an)" >> CHANGELOG.md
+          else
+            echo "*Initial release changes:*" >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            git log -n 10 --pretty=format:"* [%h](https://github.com/${{ github.repository }}/commit/%H) - %s (@%an)" >> CHANGELOG.md
+          fi
           echo "" >> CHANGELOG.md
 
       - name: Create GitHub Release
