@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g. 1.0.1). Leave blank to auto-detect from project source.'
+        description: 'Override base version (e.g. 1.0.1). Leave blank to read from version.txt.'
         required: false
         default: ''
 
@@ -16,8 +16,45 @@ permissions:
   contents: write
 
 jobs:
+  resolve-version:
+    name: Resolve Version and Git Identifier
+    runs-on: ubuntu-26.04
+    outputs:
+      base_version: ${{ steps.version_step.outputs.base_version }}
+      git_short: ${{ steps.version_step.outputs.git_short }}
+      full_version: ${{ steps.version_step.outputs.full_version }}
+      tag_name: ${{ steps.version_step.outputs.tag_name }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Compute Version Information
+        id: version_step
+        run: |
+          OVERRIDE_VER="${{ github.event.inputs.version }}"
+          if [ -n "$OVERRIDE_VER" ]; then
+            BASE_VER="$OVERRIDE_VER"
+          else
+            BASE_VER=$(cat version.txt | tr -d '[:space:]')
+          fi
+
+          GIT_HASH=$(git rev-parse --short=7 HEAD || echo "a1b2c3d")
+          FULL_VER="${BASE_VER}+git${GIT_HASH}"
+
+          echo "base_version=${BASE_VER}" >> $GITHUB_OUTPUT
+          echo "git_short=${GIT_HASH}" >> $GITHUB_OUTPUT
+          echo "full_version=${FULL_VER}" >> $GITHUB_OUTPUT
+          echo "tag_name=v${FULL_VER}" >> $GITHUB_OUTPUT
+
+          echo "Resolved Base Version: ${BASE_VER}"
+          echo "Resolved Full Version: ${FULL_VER}"
+
   build-desktop-linux:
-    name: Build Desktop (Linux Deb & Tar)
+    name: Build Desktop (Linux Deb)
+    needs: resolve-version
     runs-on: ubuntu-26.04
 
     steps:
@@ -28,6 +65,17 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
+
+      - name: Inject Version into C# Source
+        run: |
+          cat << 'EOF' > desktop/VersionInfo.cs
+          namespace Veyqo.Desktop;
+
+          public static class VersionInfo
+          {
+              public static string Version { get; set; } = "${{ needs.resolve-version.outputs.full_version }}";
+          }
+          EOF
 
       - name: Publish Linux Desktop Binary
         run: >
@@ -56,9 +104,9 @@ jobs:
           Categories=Utility;Network;
           EOF
 
-          cat << 'EOF' > dist/deb/DEBIAN/control
+          cat << EOF > dist/deb/DEBIAN/control
           Package: veyqo
-          Version: 1.0.0
+          Version: ${{ needs.resolve-version.outputs.base_version }}
           Section: utils
           Priority: optional
           Architecture: amd64
@@ -67,7 +115,7 @@ jobs:
           EOF
 
           mkdir -p dist/installers
-          dpkg-deb --build dist/deb dist/installers/Veyqo-v1.0.0-linux-amd64.deb
+          dpkg-deb --build dist/deb "dist/installers/Veyqo-v${{ needs.resolve-version.outputs.full_version }}-linux-amd64.deb"
 
       - name: Upload Linux Installers
         uses: actions/upload-artifact@v6
@@ -77,6 +125,7 @@ jobs:
 
   build-desktop-windows:
     name: Build Desktop (Windows Exe & MSI)
+    needs: resolve-version
     runs-on: windows-latest
 
     steps:
@@ -87,6 +136,18 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
+
+      - name: Inject Version into C# Source
+        shell: pwsh
+        run: |
+          @"
+          namespace Veyqo.Desktop;
+
+          public static class VersionInfo
+          {
+              public static string Version { get; set; } = "${{ needs.resolve-version.outputs.full_version }}";
+          }
+          "@ | Set-Content -Path desktop/VersionInfo.cs
 
       - name: Publish Windows Desktop Binary
         run: >
@@ -101,19 +162,18 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist/installers
-          makensis /DPRODUCT_VERSION=1.0.0 packaging/windows/installer.nsi
+          makensis /DPRODUCT_VERSION="${{ needs.resolve-version.outputs.full_version }}" packaging/windows/installer.nsi
 
       - name: Build Windows Installer Package (.msi) via WiX Toolset
         shell: pwsh
         run: |
           dotnet tool install --global wix || true
-          wix extension add --global WixToolset.UI.wixext || true
           candle packaging/windows/Product.wxs -out dist/desktop/Product.wixobj
-          light -ext WixUIExtension dist/desktop/Product.wixobj -out dist/installers/Veyqo-Setup-v1.0.0.msi -b dist/desktop/win-x64
+          light -ext WixUIExtension dist/desktop/Product.wixobj -out "dist/installers/Veyqo-Setup-v${{ needs.resolve-version.outputs.full_version }}.msi" -b dist/desktop/win-x64
 
       - name: Copy Standalone Portable Executable (.exe)
         shell: pwsh
-        run: Copy-Item dist/desktop/win-x64/Veyqo.Desktop.exe dist/installers/Veyqo-v1.0.0-win-x64-standalone.exe
+        run: Copy-Item dist/desktop/win-x64/Veyqo.Desktop.exe "dist/installers/Veyqo-v${{ needs.resolve-version.outputs.full_version }}-win-x64-standalone.exe"
 
       - name: Upload Windows Installers
         uses: actions/upload-artifact@v6
@@ -123,6 +183,7 @@ jobs:
 
   build-mobile:
     name: Build Android APK
+    needs: resolve-version
     runs-on: ubuntu-26.04
 
     steps:
@@ -148,10 +209,12 @@ jobs:
 
       - name: Build Official Signed Release APK
         working-directory: mobile
+        env:
+          GIT_COMMIT_HASH: ${{ needs.resolve-version.outputs.git_short }}
         run: |
           gradle assembleRelease --stacktrace
           mkdir -p ../dist/mobile
-          cp app/build/outputs/apk/release/*.apk ../dist/mobile/veyqo-mobile-release.apk
+          cp app/build/outputs/apk/release/*.apk "../dist/mobile/veyqo-mobile-v${{ needs.resolve-version.outputs.full_version }}-release.apk"
 
       - name: Upload Mobile APK
         uses: actions/upload-artifact@v6
@@ -162,7 +225,7 @@ jobs:
   release:
     name: Publish GitHub Release
     if: github.event_name == 'workflow_dispatch'
-    needs: [build-desktop-linux, build-desktop-windows, build-mobile]
+    needs: [resolve-version, build-desktop-linux, build-desktop-windows, build-mobile]
     runs-on: ubuntu-26.04
 
     steps:
@@ -176,19 +239,9 @@ jobs:
         with:
           path: release-artifacts
 
-      - name: Resolve Release Version
-        id: release_meta
+      - name: Generate Changelog
         run: |
-          INPUT_VER="${{ github.event.inputs.version }}"
-          if [ -n "$INPUT_VER" ]; then
-            VERSION="$INPUT_VER"
-          else
-            VERSION=$(grep -oP '(?<=<Version>)[^<]+' desktop/Veyqo.Desktop.csproj || echo "1.0.0")
-          fi
-          TAG="v${VERSION}"
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
-
+          TAG="${{ needs.resolve-version.outputs.tag_name }}"
           echo "## Veyqo Release ${TAG}" > CHANGELOG.md
           echo "" >> CHANGELOG.md
           echo "### Commit History" >> CHANGELOG.md
@@ -198,8 +251,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.release_meta.outputs.tag }}
-          name: Veyqo ${{ steps.release_meta.outputs.tag }}
+          tag_name: ${{ needs.resolve-version.outputs.tag_name }}
+          name: Veyqo ${{ needs.resolve-version.outputs.tag_name }}
           body_path: CHANGELOG.md
           draft: false
           prerelease: false

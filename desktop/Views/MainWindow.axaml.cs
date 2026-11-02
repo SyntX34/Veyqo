@@ -30,9 +30,7 @@ public partial class MainWindow : Window
 
     private void InitializeVersionInfo()
     {
-        var version = Assembly.GetExecutingAssembly().GetName().Version;
-        string verString = version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "1.0.0";
-        VersionText.Text = $"Veyqo v{verString} (Official Build)";
+        VersionText.Text = $"Veyqo v{VersionInfo.Version} (Official Build)";
     }
 
     private void InitializeTheme()

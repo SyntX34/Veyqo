@@ -2,21 +2,25 @@ plugins {
     id 'com.android.application'
 }
 
+def versionFile = file("../../version.txt")
+def baseVersion = versionFile.exists() ? versionFile.text.trim() : "1.0.0"
+def gitCommit = System.getenv("GIT_COMMIT_HASH") ?: "dev"
+def fullDisplayVersion = "${baseVersion}+git${gitCommit}"
+
 android {
     namespace 'com.veyqo.remote'
     compileSdk 34
 
     defaultConfig {
         applicationId "com.veyqo.remote"
-        minSdk 26 /* Android 8.0 Oreo and above */
+        minSdk 26
         targetSdk 34
         versionCode 1
-        versionName "1.0.0"
+        versionName fullDisplayVersion
     }
 
     signingConfigs {
         release {
-            /* Fallback to default debug keystore if no custom CI secrets provided, producing installable release APK */
             storeFile file("${System.properties['user.home']}/.android/debug.keystore")
             storePassword "android"
             keyAlias "androiddebugkey"
