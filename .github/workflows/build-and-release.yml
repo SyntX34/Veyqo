@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ master, main ]
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 1.0.1). Leave blank to auto-detect from project source.'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -56,7 +61,7 @@ jobs:
         run: tar -czvf dist/${{ matrix.archive_name }} -C dist/desktop/${{ matrix.rid }} .
 
       - name: Upload Desktop Artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact_name }}
           path: dist/${{ matrix.archive_name }}
@@ -81,19 +86,20 @@ jobs:
           keytool -genkey -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Veyqo, OU=Veyqo, O=SyntX34, L=City, S=State, C=US"
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '8.2'
+          cache-disabled: true
 
       - name: Build Official Signed Release APK
         working-directory: mobile
         run: |
           gradle assembleRelease --stacktrace
           mkdir -p ../dist/mobile
-          cp app/build/outputs/apk/release/*.apk ../dist/mobile/veyqo-mobile-v1.0.0-release.apk
+          cp app/build/outputs/apk/release/*.apk ../dist/mobile/veyqo-mobile-release.apk
 
       - name: Upload Mobile APK
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: veyqo-mobile-release-apk
           path: dist/mobile/*.apk
@@ -111,14 +117,19 @@ jobs:
           fetch-depth: 0
 
       - name: Download All Artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           path: release-artifacts
 
-      - name: Detect Version and Generate Release Notes
+      - name: Resolve Release Version
         id: release_meta
         run: |
-          VERSION=$(grep -oP '(?<=<Version>)[^<]+' desktop/Veyqo.Desktop.csproj || echo "1.0.0")
+          INPUT_VER="${{ github.event.inputs.version }}"
+          if [ -n "$INPUT_VER" ]; then
+            VERSION="$INPUT_VER"
+          else
+            VERSION=$(grep -oP '(?<=<Version>)[^<]+' desktop/Veyqo.Desktop.csproj || echo "1.0.0")
+          fi
           TAG="v${VERSION}"
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
