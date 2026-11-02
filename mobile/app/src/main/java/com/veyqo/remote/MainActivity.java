@@ -198,19 +198,23 @@ public class MainActivity extends AppCompatActivity {
 
     private void toggleServer() {
         if (!isServerRunning) {
-            if (projectionManager != null && mediaProjection == null) {
+            if (projectionManager != null) {
                 startActivityForResult(projectionManager.createScreenCaptureIntent(), SCREEN_CAPTURE_REQUEST_CODE);
             } else {
-                startServerService();
+                startServerService(0, null);
             }
         } else {
             stopServerService();
         }
     }
 
-    private void startServerService() {
+    private void startServerService(int resultCode, Intent resultData) {
         Intent intent = new Intent(this, RemoteServerService.class);
         intent.setAction(RemoteServerService.ACTION_START);
+        if (resultCode != 0 && resultData != null) {
+            intent.putExtra(RemoteServerService.EXTRA_RESULT_CODE, resultCode);
+            intent.putExtra(RemoteServerService.EXTRA_RESULT_DATA, resultData);
+        }
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 startForegroundService(intent);
@@ -250,16 +254,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == SCREEN_CAPTURE_REQUEST_CODE) {
             if (resultCode == RESULT_OK && data != null) {
-                pendingScreenIntentData = data;
-                if (projectionManager != null) {
-                    mediaProjection = projectionManager.getMediaProjection(resultCode, data);
-                    RemoteServerService.setMediaProjection(mediaProjection);
-                }
                 if (pendingConnectHost != null) {
-                    dispatchOutgoingConnect(pendingConnectHost, pendingConnectPort);
+                    dispatchOutgoingConnect(pendingConnectHost, pendingConnectPort, resultCode, data);
                     pendingConnectHost = null;
                 } else {
-                    startServerService();
+                    startServerService(resultCode, data);
                 }
             } else {
                 Toast.makeText(this, "Screen capture permission required", Toast.LENGTH_SHORT).show();
@@ -302,10 +301,10 @@ public class MainActivity extends AppCompatActivity {
                 .setPositiveButton("Authorize & Stream", (dialog, which) -> {
                     pendingConnectHost = host;
                     pendingConnectPort = port;
-                    if (mediaProjection == null && projectionManager != null) {
+                    if (projectionManager != null) {
                         startActivityForResult(projectionManager.createScreenCaptureIntent(), SCREEN_CAPTURE_REQUEST_CODE);
                     } else {
-                        dispatchOutgoingConnect(host, port);
+                        dispatchOutgoingConnect(host, port, 0, null);
                     }
                 })
                 .setNegativeButton("Deny", null)
@@ -313,11 +312,15 @@ public class MainActivity extends AppCompatActivity {
                 .show();
     }
 
-    private void dispatchOutgoingConnect(String host, int port) {
+    private void dispatchOutgoingConnect(String host, int port, int resultCode, Intent resultData) {
         Intent intent = new Intent(this, RemoteServerService.class);
         intent.setAction(RemoteServerService.ACTION_CONNECT_OUT);
         intent.putExtra(RemoteServerService.EXTRA_HOST, host);
         intent.putExtra(RemoteServerService.EXTRA_PORT, port);
+        if (resultCode != 0 && resultData != null) {
+            intent.putExtra(RemoteServerService.EXTRA_RESULT_CODE, resultCode);
+            intent.putExtra(RemoteServerService.EXTRA_RESULT_DATA, resultData);
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(intent);

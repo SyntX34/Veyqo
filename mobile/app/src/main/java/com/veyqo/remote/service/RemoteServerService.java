@@ -37,6 +37,8 @@ public class RemoteServerService extends Service {
     public static final String ACTION_CONNECT_OUT = "com.veyqo.action.CONNECT_OUT";
     public static final String EXTRA_HOST = "extra_host";
     public static final String EXTRA_PORT = "extra_port";
+    public static final String EXTRA_RESULT_CODE = "extra_result_code";
+    public static final String EXTRA_RESULT_DATA = "extra_result_data";
     public static final int DEFAULT_PORT = 55443;
 
     private final IBinder binder = new LocalBinder();
@@ -66,10 +68,28 @@ public class RemoteServerService extends Service {
                 stopAll();
                 stopSelf();
                 return START_NOT_STICKY;
-            } else if (ACTION_CONNECT_OUT.equals(action)) {
+            }
+
+            int resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0);
+            Intent resultData = intent.getParcelableExtra(EXTRA_RESULT_DATA);
+
+            startForegroundNotification();
+
+            /* On Android 14+, initialize MediaProjection inside active foreground service */
+            if (resultCode != 0 && resultData != null) {
+                try {
+                    android.media.projection.MediaProjectionManager pm =
+                            (android.media.projection.MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+                    if (pm != null) {
+                        activeMediaProjection = pm.getMediaProjection(resultCode, resultData);
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+
+            if (ACTION_CONNECT_OUT.equals(action)) {
                 String host = intent.getStringExtra(EXTRA_HOST);
                 int port = intent.getIntExtra(EXTRA_PORT, DEFAULT_PORT);
-                startForegroundNotification();
                 connectToDesktop(host, port);
                 return START_STICKY;
             }
@@ -109,7 +129,8 @@ public class RemoteServerService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             int serviceType = 0;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                serviceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE;
+                serviceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+                        | ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
             }
             startForeground(101, notification, serviceType);
         } else {

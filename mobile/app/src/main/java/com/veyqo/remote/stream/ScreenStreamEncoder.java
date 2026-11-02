@@ -1,131 +1,193 @@
 package com.veyqo.remote.stream;
 
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.PixelFormat;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
-import android.media.MediaCodec;
-import android.media.MediaCodecInfo;
-import android.media.MediaFormat;
+import android.media.Image;
+import android.media.ImageReader;
 import android.media.projection.MediaProjection;
-import android.os.Bundle;
-import android.view.Surface;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Looper;
 
+import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
-/* Hardware-accelerated H.264 screen encoder using MediaProjection and MediaCodec */
+/* Resilient screen frame capture and streamer using ImageReader and VirtualDisplay */
 public class ScreenStreamEncoder {
 
-    private static final String MIME_TYPE = "video/avc";
-    private static final int FRAME_RATE = 60;
-    private static final int I_FRAME_INTERVAL = 1;
-
     private MediaProjection mediaProjection;
-    private MediaCodec mediaCodec;
+    private ImageReader imageReader;
     private VirtualDisplay virtualDisplay;
-    private Surface inputSurface;
-    private Thread encoderThread;
+    private HandlerThread handlerThread;
+    private Handler backgroundHandler;
+    private MediaProjection.Callback projectionCallback;
     private volatile boolean isStreaming = false;
 
     private int width;
     private int height;
     private int dpi;
-    private int bitrate = 4_000_000; // 4 Mbps adaptive default
+    private int jpegQuality = 65;
+    private long lastFrameTime = 0;
+    private static final long MIN_FRAME_INTERVAL_MS = 33; /* Cap at ~30 FPS for smooth LAN responsiveness */
 
     public ScreenStreamEncoder(MediaProjection mediaProjection, int width, int height, int dpi) {
         this.mediaProjection = mediaProjection;
-        this.width = (width / 16) * 16;
-        this.height = (height / 16) * 16;
+        /* Scale dimensions down if necessary to ensure smooth streaming performance */
+        int targetWidth = width;
+        int targetHeight = height;
+        if (targetWidth > 720) {
+            float ratio = (float) targetHeight / (float) targetWidth;
+            targetWidth = 720;
+            targetHeight = (int) (720 * ratio);
+        }
+        this.width = targetWidth;
+        this.height = targetHeight;
         this.dpi = dpi;
     }
 
-    public synchronized void start(OutputStream networkOut) throws Exception {
-        if (isStreaming) return;
+    public synchronized void start(OutputStream networkOut) {
+        if (isStreaming || mediaProjection == null) return;
         isStreaming = true;
 
-        MediaFormat format = MediaFormat.createVideoFormat(MIME_TYPE, width, height);
-        format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
-        format.setInteger(MediaFormat.KEY_BIT_RATE, bitrate);
-        format.setInteger(MediaFormat.KEY_FRAME_RATE, FRAME_RATE);
-        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, I_FRAME_INTERVAL);
+        handlerThread = new HandlerThread("VeyqoScreenStreamThread");
+        handlerThread.start();
+        backgroundHandler = new Handler(handlerThread.getLooper());
 
-        mediaCodec = MediaCodec.createEncoderByType(MIME_TYPE);
-        mediaCodec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-        inputSurface = mediaCodec.createInputSurface();
-        mediaCodec.start();
-
-        virtualDisplay = mediaProjection.createVirtualDisplay(
-                "VeyqoStream",
-                width,
-                height,
-                dpi,
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-                inputSurface,
-                null,
-                null
-        );
-
-        encoderThread = new Thread(() -> encodeLoop(networkOut));
-        encoderThread.start();
-    }
-
-    private void encodeLoop(OutputStream out) {
-        MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
-        byte[] lengthHeader = new byte[4];
+        /* Register MediaProjection callback first (mandatory on Android 14+) */
+        projectionCallback = new MediaProjection.Callback() {
+            @Override
+            public void onStop() {
+                super.onStop();
+                stop();
+            }
+        };
 
         try {
-            while (isStreaming) {
-                int outputBufferIndex = mediaCodec.dequeueOutputBuffer(bufferInfo, 10_000);
-                if (outputBufferIndex >= 0) {
-                    ByteBuffer outputBuffer = mediaCodec.getOutputBuffer(outputBufferIndex);
-                    if (outputBuffer != null && bufferInfo.size > 0) {
-                        outputBuffer.position(bufferInfo.offset);
-                        outputBuffer.limit(bufferInfo.offset + bufferInfo.size);
+            mediaProjection.registerCallback(projectionCallback, new Handler(Looper.getMainLooper()));
+        } catch (Exception ignored) {
+        }
 
-                        byte[] packet = new byte[bufferInfo.size];
-                        outputBuffer.get(packet);
+        imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2);
 
-                        // 4-byte little-endian length prefix followed by H.264 NAL frame
-                        lengthHeader[0] = (byte) (bufferInfo.size & 0xFF);
-                        lengthHeader[1] = (byte) ((bufferInfo.size >> 8) & 0xFF);
-                        lengthHeader[2] = (byte) ((bufferInfo.size >> 16) & 0xFF);
-                        lengthHeader[3] = (byte) ((bufferInfo.size >> 24) & 0xFF);
+        byte[] lengthHeader = new byte[4];
+        ByteArrayOutputStream jpegBuffer = new ByteArrayOutputStream(64 * 1024);
 
-                        synchronized (out) {
-                            out.write(lengthHeader);
-                            out.write(packet);
-                            out.flush();
+        imageReader.setOnImageAvailableListener(reader -> {
+            if (!isStreaming) return;
+            long now = System.currentTimeMillis();
+            if (now - lastFrameTime < MIN_FRAME_INTERVAL_MS) {
+                Image dropImg = reader.acquireLatestImage();
+                if (dropImg != null) dropImg.close();
+                return;
+            }
+            lastFrameTime = now;
+
+            Image image = null;
+            try {
+                image = reader.acquireLatestImage();
+                if (image != null) {
+                    Image.Plane[] planes = image.getPlanes();
+                    ByteBuffer buffer = planes[0].getBuffer();
+                    int pixelStride = planes[0].getPixelStride();
+                    int rowStride = planes[0].getRowStride();
+                    int rowPadding = rowStride - pixelStride * width;
+
+                    Bitmap bitmap = Bitmap.createBitmap(
+                            width + rowPadding / pixelStride,
+                            height,
+                            Bitmap.Config.ARGB_8888
+                    );
+                    bitmap.copyPixelsFromBuffer(buffer);
+
+                    Bitmap finalBitmap = bitmap;
+                    if (rowPadding != 0) {
+                        finalBitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height);
+                        if (finalBitmap != bitmap) {
+                            bitmap.recycle();
                         }
                     }
-                    mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
+
+                    jpegBuffer.reset();
+                    finalBitmap.compress(Bitmap.CompressFormat.JPEG, jpegQuality, jpegBuffer);
+                    finalBitmap.recycle();
+
+                    byte[] jpegData = jpegBuffer.toByteArray();
+                    int size = jpegData.length;
+
+                    lengthHeader[0] = (byte) (size & 0xFF);
+                    lengthHeader[1] = (byte) ((size >> 8) & 0xFF);
+                    lengthHeader[2] = (byte) ((size >> 16) & 0xFF);
+                    lengthHeader[3] = (byte) ((size >> 24) & 0xFF);
+
+                    synchronized (networkOut) {
+                        networkOut.write(lengthHeader);
+                        networkOut.write(jpegData);
+                        networkOut.flush();
+                    }
+                }
+            } catch (Exception ignored) {
+            } finally {
+                if (image != null) {
+                    image.close();
                 }
             }
-        } catch (Exception ignored) {
-        } finally {
+        }, backgroundHandler);
+
+        try {
+            virtualDisplay = mediaProjection.createVirtualDisplay(
+                    "VeyqoStream",
+                    width,
+                    height,
+                    dpi,
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                    imageReader.getSurface(),
+                    null,
+                    backgroundHandler
+            );
+        } catch (Exception e) {
             stop();
         }
     }
 
     public void adjustBitrate(int newBitrate) {
-        if (!isStreaming || mediaCodec == null) return;
-        this.bitrate = Math.max(1_000_000, Math.min(newBitrate, 12_000_000));
-        Bundle params = new Bundle();
-        params.putInt(MediaCodec.PARAMETER_KEY_VIDEO_BITRATE, this.bitrate);
-        mediaCodec.setParameters(params);
+        /* In JPEG mode adjust compression quality based on network speed */
+        if (newBitrate < 2_000_000) {
+            jpegQuality = 45;
+        } else if (newBitrate < 5_000_000) {
+            jpegQuality = 65;
+        } else {
+            jpegQuality = 80;
+        }
     }
 
     public synchronized void stop() {
         isStreaming = false;
         try {
-            if (encoderThread != null) encoderThread.interrupt();
-            if (virtualDisplay != null) virtualDisplay.release();
-            if (inputSurface != null) inputSurface.release();
-            if (mediaCodec != null) {
-                mediaCodec.stop();
-                mediaCodec.release();
+            if (virtualDisplay != null) {
+                virtualDisplay.release();
+                virtualDisplay = null;
             }
-            if (mediaProjection != null) mediaProjection.stop();
+            if (imageReader != null) {
+                imageReader.close();
+                imageReader = null;
+            }
+            if (handlerThread != null) {
+                handlerThread.quitSafely();
+                handlerThread = null;
+                backgroundHandler = null;
+            }
+            if (mediaProjection != null && projectionCallback != null) {
+                try {
+                    mediaProjection.unregisterCallback(projectionCallback);
+                } catch (Exception ignored) {
+                }
+                projectionCallback = null;
+            }
         } catch (Exception ignored) {
         }
     }
 }
-
