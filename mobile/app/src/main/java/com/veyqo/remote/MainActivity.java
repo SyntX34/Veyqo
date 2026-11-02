@@ -91,6 +91,9 @@ public class MainActivity extends AppCompatActivity {
         boolean isDark = currentNightMode == Configuration.UI_MODE_NIGHT_YES;
         String modeString = isDark ? "Dark" : "Light";
 
+        /* Update button icon based on current mode */
+        btnToggleTheme.setImageResource(isDark ? R.drawable.ic_theme_day : R.drawable.ic_theme_night);
+
         if (mode == AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM) {
             textThemeStatus.setText(modeString + " (OS)");
         } else {

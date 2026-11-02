@@ -39,19 +39,23 @@
         <!-- Mode Toggle & Follow OS Buttons -->
         <ImageButton
             android:id="@+id/btnToggleTheme"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_day"
-            android:contentDescription="Toggle Theme Mode" />
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_theme_day"
+            android:contentDescription="Toggle Day and Night mode" />
 
         <ImageButton
             android:id="@+id/btnAutoTheme"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:layout_marginStart="4dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_manage"
+            android:padding="9dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_theme_auto"
             android:contentDescription="Follow OS Theme" />
     </LinearLayout>
 
