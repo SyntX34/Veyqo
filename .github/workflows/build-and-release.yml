@@ -16,22 +16,9 @@ permissions:
   contents: write
 
 jobs:
-  build-desktop:
-    name: Build Desktop (${{ matrix.os }})
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu
-            runner: ubuntu-26.04
-            rid: linux-x64
-            artifact_name: veyqo-desktop-linux-x64
-            archive_name: veyqo-desktop-linux-x64.tar.gz
-          - os: windows
-            runner: windows-latest
-            rid: win-x64
-            artifact_name: veyqo-desktop-win-x64
-            archive_name: veyqo-desktop-win-x64.zip
+  build-desktop-linux:
+    name: Build Desktop (Linux Deb & Tar)
+    runs-on: ubuntu-26.04
 
     steps:
       - name: Checkout Repository
@@ -42,29 +29,97 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Publish Desktop Binary
+      - name: Publish Linux Desktop Binary
         run: >
           dotnet publish desktop/Veyqo.Desktop.csproj
           -c Release
-          -r ${{ matrix.rid }}
+          -r linux-x64
           --self-contained true
           -p:PublishSingleFile=true
-          -o dist/desktop/${{ matrix.rid }}
+          -o dist/desktop/linux-x64
 
-      - name: Archive Windows Artifact
-        if: matrix.os == 'windows'
-        shell: pwsh
-        run: Compress-Archive -Path dist/desktop/${{ matrix.rid }}/* -DestinationPath dist/${{ matrix.archive_name }}
+      - name: Build Debian (.deb) Installer Package
+        run: |
+          mkdir -p dist/deb/DEBIAN dist/deb/usr/bin dist/deb/usr/share/applications dist/deb/usr/share/icons/hicolor/scalable/apps
+          cp dist/desktop/linux-x64/Veyqo.Desktop dist/deb/usr/bin/veyqo
+          chmod +x dist/deb/usr/bin/veyqo
+          cp assets/logo.svg dist/deb/usr/share/icons/hicolor/scalable/apps/veyqo.svg
 
-      - name: Archive Linux Artifact
-        if: matrix.os == 'ubuntu'
-        run: tar -czvf dist/${{ matrix.archive_name }} -C dist/desktop/${{ matrix.rid }} .
+          cat << 'EOF' > dist/deb/usr/share/applications/veyqo.desktop
+          [Desktop Entry]
+          Name=Veyqo
+          Comment=Peer-to-Peer Remote Device Bridge
+          Exec=/usr/bin/veyqo
+          Icon=veyqo
+          Terminal=false
+          Type=Application
+          Categories=Utility;Network;
+          EOF
 
-      - name: Upload Desktop Artifact
+          cat << 'EOF' > dist/deb/DEBIAN/control
+          Package: veyqo
+          Version: 1.0.0
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Maintainer: Samir Neupane (SyntX34) <samirneupane66@gmail.com>
+          Description: Peer-to-peer local remote device control suite for desktop and mobile.
+          EOF
+
+          mkdir -p dist/installers
+          dpkg-deb --build dist/deb dist/installers/Veyqo-v1.0.0-linux-amd64.deb
+
+      - name: Upload Linux Installers
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ matrix.artifact_name }}
-          path: dist/${{ matrix.archive_name }}
+          name: veyqo-desktop-linux
+          path: dist/installers/*.deb
+
+  build-desktop-windows:
+    name: Build Desktop (Windows Exe & MSI)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish Windows Desktop Binary
+        run: >
+          dotnet publish desktop/Veyqo.Desktop.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -o dist/desktop/win-x64
+
+      - name: Build Windows Setup Wizard (.exe) via NSIS
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/installers
+          makensis /DPRODUCT_VERSION=1.0.0 packaging/windows/installer.nsi
+
+      - name: Build Windows Installer Package (.msi) via WiX Toolset
+        shell: pwsh
+        run: |
+          dotnet tool install --global wix || true
+          wix extension add --global WixToolset.UI.wixext || true
+          candle packaging/windows/Product.wxs -out dist/desktop/Product.wixobj
+          light -ext WixUIExtension dist/desktop/Product.wixobj -out dist/installers/Veyqo-Setup-v1.0.0.msi -b dist/desktop/win-x64
+
+      - name: Copy Standalone Portable Executable (.exe)
+        shell: pwsh
+        run: Copy-Item dist/desktop/win-x64/Veyqo.Desktop.exe dist/installers/Veyqo-v1.0.0-win-x64-standalone.exe
+
+      - name: Upload Windows Installers
+        uses: actions/upload-artifact@v6
+        with:
+          name: veyqo-desktop-windows
+          path: dist/installers/*.*
 
   build-mobile:
     name: Build Android APK
@@ -107,7 +162,7 @@ jobs:
   release:
     name: Publish GitHub Release
     if: github.event_name == 'workflow_dispatch'
-    needs: [build-desktop, build-mobile]
+    needs: [build-desktop-linux, build-desktop-windows, build-mobile]
     runs-on: ubuntu-26.04
 
     steps:
@@ -149,6 +204,8 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            release-artifacts/**/veyqo-desktop-*.zip
-            release-artifacts/**/veyqo-desktop-*.tar.gz
+            release-artifacts/**/Veyqo-Setup-*.exe
+            release-artifacts/**/Veyqo-Setup-*.msi
+            release-artifacts/**/Veyqo-*-standalone.exe
+            release-artifacts/**/Veyqo-*.deb
             release-artifacts/**/veyqo-mobile-*.apk
