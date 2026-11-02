@@ -1,0 +1,30 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Veyqo.Desktop.Views.ErrorDialogWindow"
+        Title="Connection Error"
+        Width="460" Height="240"
+        MinWidth="400" MinHeight="200"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="#0f172a">
+
+    <Grid RowDefinitions="*,Auto" Margin="24">
+        <StackPanel Grid.Row="0" Spacing="12" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Border Width="32" Height="32" CornerRadius="16" Background="#ef4444" VerticalAlignment="Center">
+                    <TextBlock Text="✕" Foreground="#ffffff" FontSize="16" FontWeight="Bold"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <TextBlock Text="Connection Failed" FontSize="18" FontWeight="Bold" Foreground="#f87171" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <TextBlock Name="ErrorMessageText" Text="Could not connect to target device."
+                       TextWrapping="Wrap" FontSize="13" Foreground="#cbd5e1" LineHeight="20"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+            <Button Name="CloseButton" Content="OK" Width="100"
+                    HorizontalContentAlignment="Center" Background="#334155" Foreground="#ffffff" FontWeight="SemiBold"/>
+        </StackPanel>
+    </Grid>
+</Window>

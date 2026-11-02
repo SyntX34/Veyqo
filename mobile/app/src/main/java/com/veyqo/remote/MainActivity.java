@@ -13,8 +13,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.util.DisplayMetrics;
-import android.view.Gravity;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
@@ -32,7 +30,6 @@ import androidx.drawerlayout.widget.DrawerLayout;
 import com.google.zxing.integration.android.IntentIntegrator;
 import com.google.zxing.integration.android.IntentResult;
 import com.veyqo.remote.service.RemoteServerService;
-import com.veyqo.remote.stream.ScreenStreamEncoder;
 
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -64,6 +61,10 @@ public class MainActivity extends AppCompatActivity {
     private boolean isServerRunning = false;
     private String appVersion = "1.0.0";
     private MediaProjectionManager projectionManager;
+    private MediaProjection mediaProjection;
+    private Intent pendingScreenIntentData;
+    private String pendingConnectHost;
+    private int pendingConnectPort = RemoteServerService.DEFAULT_PORT;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -96,10 +97,8 @@ public class MainActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
-        // Single Theme Toggle: switches between Light (Sun) and Dark (Moon)
         btnToggleTheme.setOnClickListener(v -> toggleThemeMode());
 
-        // Settings Button: opens settings drawer from right
         btnOpenSettings.setOnClickListener(v -> {
             if (drawerLayout != null) {
                 if (drawerLayout.isDrawerOpen(GravityCompat.END)) {
@@ -158,7 +157,6 @@ public class MainActivity extends AppCompatActivity {
         int currentNightMode = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
         boolean isDark = currentNightMode == Configuration.UI_MODE_NIGHT_YES;
 
-        // When Dark, show Sun icon to switch to Light. When Light, show Moon icon to switch to Dark.
         btnToggleTheme.setImageResource(isDark ? R.drawable.ic_theme_day : R.drawable.ic_theme_night);
         textThemeStatus.setText(isDark ? "Dark" : "Light");
     }
@@ -200,7 +198,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void toggleServer() {
         if (!isServerRunning) {
-            if (projectionManager != null) {
+            if (projectionManager != null && mediaProjection == null) {
                 startActivityForResult(projectionManager.createScreenCaptureIntent(), SCREEN_CAPTURE_REQUEST_CODE);
             } else {
                 startServerService();
@@ -223,7 +221,7 @@ public class MainActivity extends AppCompatActivity {
             textServerStatus.setText("Port " + RemoteServerService.DEFAULT_PORT + ": Active (Listening)");
             btnToggleServer.setText("Stop Remote Server");
         } catch (Exception e) {
-            Toast.makeText(this, "Failed to start service: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Failed to start server: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
@@ -252,9 +250,19 @@ public class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == SCREEN_CAPTURE_REQUEST_CODE) {
             if (resultCode == RESULT_OK && data != null) {
-                startServerService();
+                pendingScreenIntentData = data;
+                if (projectionManager != null) {
+                    mediaProjection = projectionManager.getMediaProjection(resultCode, data);
+                    RemoteServerService.setMediaProjection(mediaProjection);
+                }
+                if (pendingConnectHost != null) {
+                    dispatchOutgoingConnect(pendingConnectHost, pendingConnectPort);
+                    pendingConnectHost = null;
+                } else {
+                    startServerService();
+                }
             } else {
-                Toast.makeText(this, "Screen capture permission required for streaming", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Screen capture permission required", Toast.LENGTH_SHORT).show();
             }
             return;
         }
@@ -262,12 +270,63 @@ public class MainActivity extends AppCompatActivity {
         IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
         if (result != null) {
             if (result.getContents() != null) {
-                String payload = result.getContents();
-                Toast.makeText(this, "Paired: " + payload, Toast.LENGTH_LONG).show();
+                handleScannedPayload(result.getContents());
             }
         } else {
             super.onActivityResult(requestCode, resultCode, data);
         }
+    }
+
+    private void handleScannedPayload(String payload) {
+        // Parse: veyqo://connect?host=192.168.2.100&port=55443&token=...
+        try {
+            Uri uri = Uri.parse(payload);
+            String host = uri.getQueryParameter("host");
+            String portStr = uri.getQueryParameter("port");
+            int port = (portStr != null) ? Integer.parseInt(portStr) : RemoteServerService.DEFAULT_PORT;
+
+            if (host != null && !host.isEmpty()) {
+                showApprovalDialog(host, port);
+                return;
+            }
+        } catch (Exception ignored) {
+        }
+
+        Toast.makeText(this, "Scanned: " + payload, Toast.LENGTH_LONG).show();
+    }
+
+    private void showApprovalDialog(String host, int port) {
+        new AlertDialog.Builder(this)
+                .setTitle("Pairing Request")
+                .setMessage("Allow desktop controller at " + host + ":" + port + " to view and control this device?")
+                .setPositiveButton("Authorize & Stream", (dialog, which) -> {
+                    pendingConnectHost = host;
+                    pendingConnectPort = port;
+                    if (mediaProjection == null && projectionManager != null) {
+                        startActivityForResult(projectionManager.createScreenCaptureIntent(), SCREEN_CAPTURE_REQUEST_CODE);
+                    } else {
+                        dispatchOutgoingConnect(host, port);
+                    }
+                })
+                .setNegativeButton("Deny", null)
+                .setCancelable(false)
+                .show();
+    }
+
+    private void dispatchOutgoingConnect(String host, int port) {
+        Intent intent = new Intent(this, RemoteServerService.class);
+        intent.setAction(RemoteServerService.ACTION_CONNECT_OUT);
+        intent.putExtra(RemoteServerService.EXTRA_HOST, host);
+        intent.putExtra(RemoteServerService.EXTRA_PORT, port);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent);
+        } else {
+            startService(intent);
+        }
+
+        Toast.makeText(this, "Connecting to PC (" + host + ")...", Toast.LENGTH_LONG).show();
+        textServerStatus.setText("Connected to PC: " + host);
     }
 
     private String getDeviceIpAddress() {

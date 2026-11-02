@@ -1,5 +1,4 @@
 using System.IO;
-using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -15,6 +14,7 @@ namespace Veyqo.Desktop.Views;
 public partial class MainWindow : Window
 {
     private readonly RemoteClient _client = new();
+    private readonly RemoteServer _server = new();
     private readonly VideoFrameDecoder _decoder = new();
     private string _localIp = "127.0.0.1";
     private readonly int _serverPort = 55443;
@@ -50,7 +50,6 @@ public partial class MainWindow : Window
     {
         bool isDark = ActualThemeVariant == ThemeVariant.Dark;
 
-        /* Apply dynamic palette adjustments */
         if (isDark)
         {
             Background = new SolidColorBrush(Color.Parse("#0b0f19"));
@@ -85,7 +84,7 @@ public partial class MainWindow : Window
         _localIp = NetworkDiscovery.GetLocalIpAddress();
         LocalIpText.Text = $"Host: {_localIp}:{_serverPort}";
 
-        /* Generate pairing QR code */
+        /* Generate pairing QR code for Mobile to connect back to Desktop */
         string payload = NetworkDiscovery.BuildConnectionPayload(_localIp, _serverPort, Guid.NewGuid().ToString("N"));
         using var qrGenerator = new QRCodeGenerator();
         using var qrData = qrGenerator.CreateQrCode(payload, QRCodeGenerator.ECCLevel.Q);
@@ -94,6 +93,18 @@ public partial class MainWindow : Window
 
         using var ms = new MemoryStream(qrBytes);
         QrCodeImage.Source = new Bitmap(ms);
+
+        /* Start background server to accept incoming mobile connections */
+        try
+        {
+            _server.Start(_serverPort);
+            _server.OnClientConnected += HandleServerClientConnected;
+            _server.OnFrameReceived += HandleFrameReceived;
+            _server.OnDisconnected += HandleDisconnected;
+        }
+        catch
+        {
+        }
     }
 
     private void HookEvents()
@@ -141,6 +152,18 @@ public partial class MainWindow : Window
         RemoteScreenImage.PointerReleased += HandlePointerReleased;
     }
 
+    private void HandleServerClientConnected(string remoteEndpoint)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            StatusText.Text = $"Status: Connected ({remoteEndpoint})";
+            ConnectButton.IsVisible = false;
+            DisconnectButton.IsVisible = true;
+            StandbyPanel.IsVisible = false;
+            ViewportBorder.IsVisible = true;
+        });
+    }
+
     private async Task HandleConnectAsync()
     {
         string host = TargetHostBox.Text?.Trim() ?? string.Empty;
@@ -168,12 +191,18 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             StatusText.Text = $"Status: Error ({ex.Message})";
+            var dialog = new ErrorDialogWindow(
+                $"Could not establish connection to {host}:{port}.\n\n" +
+                $"Reason: {ex.Message}\n\n" +
+                "Make sure both devices are on the same Wi-Fi network and Veyqo is running on your mobile device.");
+            await dialog.ShowDialog(this);
         }
     }
 
     private async Task HandleDisconnectAsync()
     {
         await _client.DisposeAsync();
+        await _server.DisposeAsync();
         HandleDisconnected();
     }
 
@@ -181,7 +210,7 @@ public partial class MainWindow : Window
     {
         Dispatcher.UIThread.Post(() =>
         {
-            StatusText.Text = "Status: Disconnected";
+            StatusText.Text = "Status: Disconnected / Standby";
             ConnectButton.IsVisible = true;
             DisconnectButton.IsVisible = false;
             StandbyPanel.IsVisible = true;
@@ -197,6 +226,11 @@ public partial class MainWindow : Window
             if (bitmap != null)
             {
                 RemoteScreenImage.Source = bitmap;
+                if (StandbyPanel.IsVisible)
+                {
+                    StandbyPanel.IsVisible = false;
+                    ViewportBorder.IsVisible = true;
+                }
             }
         });
     }
@@ -210,12 +244,15 @@ public partial class MainWindow : Window
         float normX = (float)(point.Position.X / size.Width);
         float normY = (float)(point.Position.Y / size.Height);
 
-        _ = _client.SendPacketAsync(new ControlPacket
+        var packet = new ControlPacket
         {
             Type = ControlMessageType.TouchDown,
             X = normX,
             Y = normY
-        });
+        };
+
+        _ = _client.SendPacketAsync(packet);
+        _ = _server.SendPacketAsync(packet);
     }
 
     private void HandlePointerMoved(object? sender, PointerEventArgs e)
@@ -229,12 +266,15 @@ public partial class MainWindow : Window
         float normX = (float)(point.Position.X / size.Width);
         float normY = (float)(point.Position.Y / size.Height);
 
-        _ = _client.SendPacketAsync(new ControlPacket
+        var packet = new ControlPacket
         {
             Type = ControlMessageType.TouchMove,
             X = normX,
             Y = normY
-        });
+        };
+
+        _ = _client.SendPacketAsync(packet);
+        _ = _server.SendPacketAsync(packet);
     }
 
     private void HandlePointerReleased(object? sender, PointerReleasedEventArgs e)
@@ -246,11 +286,14 @@ public partial class MainWindow : Window
         float normX = (float)(point.Position.X / size.Width);
         float normY = (float)(point.Position.Y / size.Height);
 
-        _ = _client.SendPacketAsync(new ControlPacket
+        var packet = new ControlPacket
         {
             Type = ControlMessageType.TouchUp,
             X = normX,
             Y = normY
-        });
+        };
+
+        _ = _client.SendPacketAsync(packet);
+        _ = _server.SendPacketAsync(packet);
     }
 }

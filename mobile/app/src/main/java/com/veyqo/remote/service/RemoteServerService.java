@@ -7,6 +7,8 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
+import android.media.projection.MediaProjection;
+import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
 import android.util.DisplayMetrics;
@@ -16,33 +18,61 @@ import androidx.core.app.NotificationCompat;
 
 import com.google.gson.Gson;
 import com.veyqo.remote.network.ControlPacket;
+import com.veyqo.remote.stream.ScreenStreamEncoder;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 
-/* Manages background TCP socket listener and incoming remote control packets */
+/* Background TCP Service supporting both Host listener and Client outgoing connect */
 public class RemoteServerService extends Service {
 
     public static final String ACTION_START = "com.veyqo.action.START_SERVER";
     public static final String ACTION_STOP = "com.veyqo.action.STOP_SERVER";
+    public static final String ACTION_CONNECT_OUT = "com.veyqo.action.CONNECT_OUT";
+    public static final String EXTRA_HOST = "extra_host";
+    public static final String EXTRA_PORT = "extra_port";
     public static final int DEFAULT_PORT = 55443;
 
+    private final IBinder binder = new LocalBinder();
     private ServerSocket serverSocket;
     private Thread serverThread;
+    private Thread clientThread;
     private boolean isRunning = false;
     private final Gson gson = new Gson();
+    private static MediaProjection activeMediaProjection;
+    private ScreenStreamEncoder streamEncoder;
+
+    public class LocalBinder extends Binder {
+        public RemoteServerService getService() {
+            return RemoteServerService.this;
+        }
+    }
+
+    public static void setMediaProjection(MediaProjection projection) {
+        activeMediaProjection = projection;
+    }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent != null && ACTION_STOP.equals(intent.getAction())) {
-            stopServer();
-            stopSelf();
-            return START_NOT_STICKY;
+        if (intent != null) {
+            String action = intent.getAction();
+            if (ACTION_STOP.equals(action)) {
+                stopAll();
+                stopSelf();
+                return START_NOT_STICKY;
+            } else if (ACTION_CONNECT_OUT.equals(action)) {
+                String host = intent.getStringExtra(EXTRA_HOST);
+                int port = intent.getIntExtra(EXTRA_PORT, DEFAULT_PORT);
+                startForegroundNotification();
+                connectToDesktop(host, port);
+                return START_STICKY;
+            }
         }
 
         try {
@@ -93,10 +123,14 @@ public class RemoteServerService extends Service {
 
         serverThread = new Thread(() -> {
             try {
-                serverSocket = new ServerSocket(DEFAULT_PORT);
-                while (isRunning) {
+                serverSocket = new ServerSocket();
+                serverSocket.setReuseAddress(true);
+                serverSocket.bind(new InetSocketAddress("0.0.0.0", DEFAULT_PORT));
+
+                while (isRunning && !serverSocket.isClosed()) {
                     Socket client = serverSocket.accept();
-                    new Thread(() -> handleClient(client)).start();
+                    client.setTcpNoDelay(true);
+                    new Thread(() -> handleConnection(client)).start();
                 }
             } catch (Exception ignored) {
             }
@@ -104,17 +138,43 @@ public class RemoteServerService extends Service {
         serverThread.start();
     }
 
-    private void handleClient(Socket socket) {
+    private void connectToDesktop(String host, int port) {
+        if (clientThread != null && clientThread.isAlive()) {
+            clientThread.interrupt();
+        }
+
+        clientThread = new Thread(() -> {
+            try {
+                Socket socket = new Socket();
+                socket.setTcpNoDelay(true);
+                socket.connect(new InetSocketAddress(host, port), 5000);
+                handleConnection(socket);
+            } catch (Exception ignored) {
+            }
+        });
+        clientThread.start();
+    }
+
+    private void handleConnection(Socket socket) {
         try (InputStream in = socket.getInputStream();
              OutputStream out = socket.getOutputStream()) {
 
-            byte[] lengthBuffer = new byte[4];
             WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
             DisplayMetrics metrics = new DisplayMetrics();
             if (wm != null) {
                 wm.getDefaultDisplay().getRealMetrics(metrics);
             }
 
+            // Start hardware screen encoder if MediaProjection is granted
+            if (activeMediaProjection != null) {
+                try {
+                    streamEncoder = new ScreenStreamEncoder(activeMediaProjection, metrics.widthPixels, metrics.heightPixels, metrics.densityDpi);
+                    streamEncoder.start(out);
+                } catch (Exception ignored) {
+                }
+            }
+
+            byte[] lengthBuffer = new byte[4];
             while (isRunning && !socket.isClosed()) {
                 int read = in.read(lengthBuffer);
                 if (read < 4) break;
@@ -135,6 +195,11 @@ public class RemoteServerService extends Service {
                 processPacket(packet, metrics.widthPixels, metrics.heightPixels);
             }
         } catch (Exception ignored) {
+        } finally {
+            if (streamEncoder != null) {
+                streamEncoder.stop();
+                streamEncoder = null;
+            }
         }
     }
 
@@ -150,22 +215,27 @@ public class RemoteServerService extends Service {
         }
     }
 
-    private void stopServer() {
+    private void stopAll() {
         isRunning = false;
         try {
+            if (streamEncoder != null) {
+                streamEncoder.stop();
+                streamEncoder = null;
+            }
             if (serverSocket != null) serverSocket.close();
+            if (clientThread != null) clientThread.interrupt();
         } catch (Exception ignored) {
         }
     }
 
     @Override
     public void onDestroy() {
-        stopServer();
+        stopAll();
         super.onDestroy();
     }
 
     @Override
     public IBinder onBind(Intent intent) {
-        return null;
+        return binder;
     }
 }

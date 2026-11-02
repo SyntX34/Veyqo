@@ -9,23 +9,21 @@
         android:id="@+id/zxing_barcode_scanner"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        app:zxing_framing_rect_width="260dp"
-        app:zxing_framing_rect_height="260dp"
+        app:zxing_framing_rect_width="300dp"
+        app:zxing_framing_rect_height="300dp"
         app:zxing_use_texture_view="true" />
 
-    <!-- Top instructions header -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|center_horizontal"
-        android:layout_marginTop="56dp"
-        android:background="#990F172A"
-        android:paddingHorizontal="16dp"
-        android:paddingVertical="8dp"
-        android:text="Align QR Code inside the square"
+        android:layout_marginTop="60dp"
+        android:background="#CC0F172A"
+        android:paddingHorizontal="20dp"
+        android:paddingVertical="10dp"
+        android:text="Point camera at Veyqo Desktop QR Code"
         android:textColor="#FFFFFF"
         android:textSize="14sp"
         android:textStyle="bold" />
 
 </FrameLayout>
-
