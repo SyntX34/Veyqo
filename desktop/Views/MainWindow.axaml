@@ -23,11 +23,8 @@
                         </StackPanel>
                     </StackPanel>
 
-                    <!-- Theme Toggle Buttons -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                        <Button Name="ThemeModeButton" Content="☀️" Padding="6,4" ToolTip.Tip="Toggle Light / Dark mode"/>
-                        <Button Name="ThemeAutoButton" Content="⚙️" Padding="6,4" ToolTip.Tip="Follow System Theme"/>
-                    </StackPanel>
+                    <!-- Theme Toggle Button -->
+                    <Button Grid.Column="1" Name="ThemeModeButton" Content="☀️" Padding="8,4" ToolTip.Tip="Toggle Light / Dark mode" VerticalAlignment="Center"/>
                 </Grid>
 
                 <!-- Version Banner -->

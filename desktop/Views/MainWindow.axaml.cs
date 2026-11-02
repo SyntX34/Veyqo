@@ -15,6 +15,7 @@ namespace Veyqo.Desktop.Views;
 public partial class MainWindow : Window
 {
     private readonly RemoteClient _client = new();
+    private readonly VideoFrameDecoder _decoder = new();
     private string _localIp = "127.0.0.1";
     private readonly int _serverPort = 55443;
     private bool _isFollowSystemTheme = true;
@@ -122,24 +123,12 @@ public partial class MainWindow : Window
 
         ThemeModeButton.Click += (_, _) =>
         {
-            _isFollowSystemTheme = false;
             var app = Application.Current;
             if (app != null)
             {
                 app.RequestedThemeVariant = app.ActualThemeVariant == ThemeVariant.Dark
                     ? ThemeVariant.Light
                     : ThemeVariant.Dark;
-            }
-            UpdateThemeVisuals();
-        };
-
-        ThemeAutoButton.Click += (_, _) =>
-        {
-            _isFollowSystemTheme = true;
-            var app = Application.Current;
-            if (app != null)
-            {
-                app.RequestedThemeVariant = ThemeVariant.Default;
             }
             UpdateThemeVisuals();
         };
@@ -204,14 +193,10 @@ public partial class MainWindow : Window
     {
         Dispatcher.UIThread.Post(() =>
         {
-            try
+            var bitmap = _decoder.DecodeFrame(frameData);
+            if (bitmap != null)
             {
-                using var ms = new MemoryStream(frameData);
-                RemoteScreenImage.Source = new Bitmap(ms);
-            }
-            catch
-            {
-                /* Ignore malformed frames */
+                RemoteScreenImage.Source = bitmap;
             }
         });
     }

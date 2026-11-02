@@ -7,10 +7,14 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.media.projection.MediaProjection;
+import android.media.projection.MediaProjectionManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.util.DisplayMetrics;
+import android.view.Gravity;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
@@ -18,15 +22,17 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.GravityCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
 
 import com.google.zxing.integration.android.IntentIntegrator;
 import com.google.zxing.integration.android.IntentResult;
 import com.veyqo.remote.service.RemoteServerService;
+import com.veyqo.remote.stream.ScreenStreamEncoder;
 
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -40,15 +46,15 @@ public class MainActivity extends AppCompatActivity {
     private static final String KEY_THEME_MODE = "theme_mode";
     private static final String GITHUB_REPO_URL = "https://github.com/SyntX34/Veyqo";
     private static final int PERMISSION_REQUEST_CODE = 1001;
-    private static final String GITHUB_REPO_URL = "https://github.com/SyntX34/Veyqo";
-    private static final int PERMISSION_REQUEST_CODE = 1001;
+    private static final int SCREEN_CAPTURE_REQUEST_CODE = 1002;
 
+    private DrawerLayout drawerLayout;
     private TextView textServerStatus;
     private TextView textIpAddress;
     private TextView textVersionBanner;
     private TextView textThemeStatus;
     private ImageButton btnToggleTheme;
-    private ImageButton btnAutoTheme;
+    private ImageButton btnOpenSettings;
     private Button btnToggleServer;
     private Button btnScanQr;
     private Button btnEnableAccessibility;
@@ -57,23 +63,27 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean isServerRunning = false;
     private String appVersion = "1.0.0";
+    private MediaProjectionManager projectionManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        drawerLayout = findViewById(R.id.drawerLayout);
         textServerStatus = findViewById(R.id.textServerStatus);
         textIpAddress = findViewById(R.id.textIpAddress);
         textVersionBanner = findViewById(R.id.textVersionBanner);
         textThemeStatus = findViewById(R.id.textThemeStatus);
         btnToggleTheme = findViewById(R.id.btnToggleTheme);
-        btnAutoTheme = findViewById(R.id.btnAutoTheme);
+        btnOpenSettings = findViewById(R.id.btnOpenSettings);
         btnToggleServer = findViewById(R.id.btnToggleServer);
         btnScanQr = findViewById(R.id.btnScanQr);
         btnEnableAccessibility = findViewById(R.id.btnEnableAccessibility);
         btnGithubRepo = findViewById(R.id.btnGithubRepo);
         btnAboutApp = findViewById(R.id.btnAboutApp);
+
+        projectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
 
         initVersionAndThemeBanner();
         updateIpAddress();
@@ -86,8 +96,19 @@ public class MainActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
+        // Single Theme Toggle: switches between Light (Sun) and Dark (Moon)
         btnToggleTheme.setOnClickListener(v -> toggleThemeMode());
-        btnAutoTheme.setOnClickListener(v -> setFollowSystemTheme());
+
+        // Settings Button: opens settings drawer from right
+        btnOpenSettings.setOnClickListener(v -> {
+            if (drawerLayout != null) {
+                if (drawerLayout.isDrawerOpen(GravityCompat.END)) {
+                    drawerLayout.closeDrawer(GravityCompat.END);
+                } else {
+                    drawerLayout.openDrawer(GravityCompat.END);
+                }
+            }
+        });
 
         btnGithubRepo.setOnClickListener(v -> {
             Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(GITHUB_REPO_URL));
@@ -123,17 +144,6 @@ public class MainActivity extends AppCompatActivity {
         initiateQrScan();
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == PERMISSION_REQUEST_CODE) {
-            boolean cameraGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
-            if (cameraGranted && !isServerRunning) {
-                /* Camera is now ready for QR scanner */
-            }
-        }
-    }
-
     private void initVersionAndThemeBanner() {
         try {
             PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
@@ -145,20 +155,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateThemeBannerText() {
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        int mode = prefs.getInt(KEY_THEME_MODE, AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
-
         int currentNightMode = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
         boolean isDark = currentNightMode == Configuration.UI_MODE_NIGHT_YES;
-        String modeString = isDark ? "Dark" : "Light";
 
+        // When Dark, show Sun icon to switch to Light. When Light, show Moon icon to switch to Dark.
         btnToggleTheme.setImageResource(isDark ? R.drawable.ic_theme_day : R.drawable.ic_theme_night);
-
-        if (mode == AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM) {
-            textThemeStatus.setText(modeString + " (OS)");
-        } else {
-            textThemeStatus.setText(modeString);
-        }
+        textThemeStatus.setText(isDark ? "Dark" : "Light");
     }
 
     private void toggleThemeMode() {
@@ -173,15 +175,6 @@ public class MainActivity extends AppCompatActivity {
                 .apply();
 
         AppCompatDelegate.setDefaultNightMode(nextMode);
-    }
-
-    private void setFollowSystemTheme() {
-        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                .edit()
-                .putInt(KEY_THEME_MODE, AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-                .apply();
-
-        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
     }
 
     private void showAboutDialog() {
@@ -206,31 +199,44 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void toggleServer() {
-        Intent intent = new Intent(this, RemoteServerService.class);
         if (!isServerRunning) {
-            intent.setAction(RemoteServerService.ACTION_START);
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(intent);
-                } else {
-                    startService(intent);
-                }
-                isServerRunning = true;
-                textServerStatus.setText("Port " + RemoteServerService.DEFAULT_PORT + ": Active (Listening)");
-                btnToggleServer.setText("Stop Remote Server");
-            } catch (Exception e) {
-                Toast.makeText(this, "Failed to start service: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            if (projectionManager != null) {
+                startActivityForResult(projectionManager.createScreenCaptureIntent(), SCREEN_CAPTURE_REQUEST_CODE);
+            } else {
+                startServerService();
             }
         } else {
-            intent.setAction(RemoteServerService.ACTION_STOP);
-            try {
-                startService(intent);
-            } catch (Exception ignored) {
-            }
-            isServerRunning = false;
-            textServerStatus.setText("Port " + RemoteServerService.DEFAULT_PORT + ": Offline");
-            btnToggleServer.setText("Start Remote Server");
+            stopServerService();
         }
+    }
+
+    private void startServerService() {
+        Intent intent = new Intent(this, RemoteServerService.class);
+        intent.setAction(RemoteServerService.ACTION_START);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent);
+            } else {
+                startService(intent);
+            }
+            isServerRunning = true;
+            textServerStatus.setText("Port " + RemoteServerService.DEFAULT_PORT + ": Active (Listening)");
+            btnToggleServer.setText("Stop Remote Server");
+        } catch (Exception e) {
+            Toast.makeText(this, "Failed to start service: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void stopServerService() {
+        Intent intent = new Intent(this, RemoteServerService.class);
+        intent.setAction(RemoteServerService.ACTION_STOP);
+        try {
+            startService(intent);
+        } catch (Exception ignored) {
+        }
+        isServerRunning = false;
+        textServerStatus.setText("Port " + RemoteServerService.DEFAULT_PORT + ": Offline");
+        btnToggleServer.setText("Start Remote Server");
     }
 
     private void initiateQrScan() {
@@ -244,6 +250,15 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == SCREEN_CAPTURE_REQUEST_CODE) {
+            if (resultCode == RESULT_OK && data != null) {
+                startServerService();
+            } else {
+                Toast.makeText(this, "Screen capture permission required for streaming", Toast.LENGTH_SHORT).show();
+            }
+            return;
+        }
+
         IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
         if (result != null) {
             if (result.getContents() != null) {
