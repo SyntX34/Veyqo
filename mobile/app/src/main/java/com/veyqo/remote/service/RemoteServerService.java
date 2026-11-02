@@ -6,6 +6,7 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.IBinder;
 import android.util.DisplayMetrics;
@@ -24,7 +25,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 
-/* Manages the background local TCP listener and incoming remote control packets */
+/* Manages background TCP socket listener and incoming remote control packets */
 public class RemoteServerService extends Service {
 
     public static final String ACTION_START = "com.veyqo.action.START_SERVER";
@@ -44,31 +45,46 @@ public class RemoteServerService extends Service {
             return START_NOT_STICKY;
         }
 
-        startForegroundNotification();
-        startServer();
+        try {
+            startForegroundNotification();
+            startServer();
+        } catch (Exception e) {
+            stopSelf();
+        }
         return START_STICKY;
     }
 
     private void startForegroundNotification() {
-        String channelId = "veyqo_channel";
+        String channelId = "veyqo_remote_server_channel";
         NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && manager != null) {
             NotificationChannel channel = new NotificationChannel(
                     channelId,
-                    "Veyqo Service",
+                    "Veyqo Remote Server",
                     NotificationManager.IMPORTANCE_LOW
             );
+            channel.setDescription("Shows active local remote connection state");
             manager.createNotificationChannel(channel);
         }
 
         Notification notification = new NotificationCompat.Builder(this, channelId)
                 .setContentTitle("Veyqo Server Active")
-                .setContentText("Listening for desktop controller connections on port " + DEFAULT_PORT)
+                .setContentText("Listening on port " + DEFAULT_PORT)
                 .setSmallIcon(android.R.drawable.stat_notify_sync)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setOngoing(true)
                 .build();
 
-        startForeground(101, notification);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            int serviceType = 0;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                serviceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE;
+            }
+            startForeground(101, notification, serviceType);
+        } else {
+            startForeground(101, notification);
+        }
     }
 
     private void startServer() {
@@ -82,8 +98,7 @@ public class RemoteServerService extends Service {
                     Socket client = serverSocket.accept();
                     new Thread(() -> handleClient(client)).start();
                 }
-            } catch (Exception e) {
-                /* Handled on server stop */
+            } catch (Exception ignored) {
             }
         });
         serverThread.start();
@@ -96,7 +111,9 @@ public class RemoteServerService extends Service {
             byte[] lengthBuffer = new byte[4];
             WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
             DisplayMetrics metrics = new DisplayMetrics();
-            wm.getDefaultDisplay().getRealMetrics(metrics);
+            if (wm != null) {
+                wm.getDefaultDisplay().getRealMetrics(metrics);
+            }
 
             while (isRunning && !socket.isClosed()) {
                 int read = in.read(lengthBuffer);
@@ -123,7 +140,7 @@ public class RemoteServerService extends Service {
 
     private void processPacket(ControlPacket packet, int screenWidth, int screenHeight) {
         InputInjectionService injectionService = InputInjectionService.getInstance();
-        if (injectionService == null || packet == null) return;
+        if (injectionService == null || packet == null || screenWidth <= 0 || screenHeight <= 0) return;
 
         float targetX = packet.x * screenWidth;
         float targetY = packet.y * screenHeight;

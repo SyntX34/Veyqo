@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.res.Configuration;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -13,6 +14,7 @@ import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 
@@ -29,6 +31,7 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String PREFS_NAME = "veyqo_theme_prefs";
     private static final String KEY_THEME_MODE = "theme_mode";
+    private static final String GITHUB_REPO_URL = "https://github.com/SyntX34/Veyqo";
 
     private TextView textServerStatus;
     private TextView textIpAddress;
@@ -39,8 +42,11 @@ public class MainActivity extends AppCompatActivity {
     private Button btnToggleServer;
     private Button btnScanQr;
     private Button btnEnableAccessibility;
+    private Button btnGithubRepo;
+    private Button btnAboutApp;
 
     private boolean isServerRunning = false;
+    private String appVersion = "1.0.0";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,6 +62,8 @@ public class MainActivity extends AppCompatActivity {
         btnToggleServer = findViewById(R.id.btnToggleServer);
         btnScanQr = findViewById(R.id.btnScanQr);
         btnEnableAccessibility = findViewById(R.id.btnEnableAccessibility);
+        btnGithubRepo = findViewById(R.id.btnGithubRepo);
+        btnAboutApp = findViewById(R.id.btnAboutApp);
 
         initVersionAndThemeBanner();
         updateIpAddress();
@@ -69,17 +77,22 @@ public class MainActivity extends AppCompatActivity {
 
         btnToggleTheme.setOnClickListener(v -> toggleThemeMode());
         btnAutoTheme.setOnClickListener(v -> setFollowSystemTheme());
+
+        btnGithubRepo.setOnClickListener(v -> {
+            Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(GITHUB_REPO_URL));
+            startActivity(browserIntent);
+        });
+
+        btnAboutApp.setOnClickListener(v -> showAboutDialog());
     }
 
     private void initVersionAndThemeBanner() {
-        String versionName = "1.0.0";
         try {
             PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
-            versionName = pInfo.versionName;
+            appVersion = pInfo.versionName;
         } catch (Exception ignored) {
         }
-        textVersionBanner.setText("● Veyqo v" + versionName + " (Official Build)");
-
+        textVersionBanner.setText("● Veyqo v" + appVersion + " (Official Build)");
         updateThemeBannerText();
     }
 
@@ -91,7 +104,6 @@ public class MainActivity extends AppCompatActivity {
         boolean isDark = currentNightMode == Configuration.UI_MODE_NIGHT_YES;
         String modeString = isDark ? "Dark" : "Light";
 
-        /* Update button icon based on current mode */
         btnToggleTheme.setImageResource(isDark ? R.drawable.ic_theme_day : R.drawable.ic_theme_night);
 
         if (mode == AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM) {
@@ -124,6 +136,22 @@ public class MainActivity extends AppCompatActivity {
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
     }
 
+    private void showAboutDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("About Veyqo")
+                .setMessage("Veyqo v" + appVersion + "\n\n"
+                        + "High-performance local-first peer-to-peer remote device bridge for Windows, Linux, and Android.\n\n"
+                        + "Author: Samir Neupane (SyntX34)\n"
+                        + "License: MIT License\n"
+                        + "Repository: " + GITHUB_REPO_URL)
+                .setPositiveButton("OK", null)
+                .setNeutralButton("Visit GitHub", (dialog, which) -> {
+                    Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(GITHUB_REPO_URL));
+                    startActivity(browserIntent);
+                })
+                .show();
+    }
+
     private void updateIpAddress() {
         String ip = getDeviceIpAddress();
         textIpAddress.setText("IP: " + ip);
@@ -133,17 +161,24 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent(this, RemoteServerService.class);
         if (!isServerRunning) {
             intent.setAction(RemoteServerService.ACTION_START);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(intent);
-            } else {
-                startService(intent);
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(intent);
+                } else {
+                    startService(intent);
+                }
+                isServerRunning = true;
+                textServerStatus.setText("Port " + RemoteServerService.DEFAULT_PORT + ": Active (Listening)");
+                btnToggleServer.setText("Stop Remote Server");
+            } catch (Exception e) {
+                Toast.makeText(this, "Failed to start service: " + e.getMessage(), Toast.LENGTH_LONG).show();
             }
-            isServerRunning = true;
-            textServerStatus.setText("Port " + RemoteServerService.DEFAULT_PORT + ": Active (Listening)");
-            btnToggleServer.setText("Stop Remote Server");
         } else {
             intent.setAction(RemoteServerService.ACTION_STOP);
-            startService(intent);
+            try {
+                startService(intent);
+            } catch (Exception ignored) {
+            }
             isServerRunning = false;
             textServerStatus.setText("Port " + RemoteServerService.DEFAULT_PORT + ": Offline");
             btnToggleServer.setText("Start Remote Server");
@@ -152,8 +187,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void initiateQrScan() {
         IntentIntegrator integrator = new IntentIntegrator(this);
-        integrator.setPrompt("Align with Veyqo Desktop QR Code");
-        integrator.setOrientationLocked(false);
+        integrator.setCaptureActivity(CustomScanActivity.class);
+        integrator.setPrompt("Align QR Code inside viewfinder");
+        integrator.setOrientationLocked(true);
+        integrator.setBeepEnabled(true);
         integrator.initiateScan();
     }
 
@@ -162,7 +199,8 @@ public class MainActivity extends AppCompatActivity {
         IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
         if (result != null) {
             if (result.getContents() != null) {
-                Toast.makeText(this, "Scanned: " + result.getContents(), Toast.LENGTH_LONG).show();
+                String payload = result.getContents();
+                Toast.makeText(this, "Paired: " + payload, Toast.LENGTH_LONG).show();
             }
         } else {
             super.onActivityResult(requestCode, resultCode, data);

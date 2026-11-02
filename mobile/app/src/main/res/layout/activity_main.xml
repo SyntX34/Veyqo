@@ -145,7 +145,7 @@
         android:id="@+id/btnToggleServer"
         android:layout_width="match_parent"
         android:layout_height="54dp"
-        android:layout_marginTop="20dp"
+        android:layout_marginTop="16dp"
         android:backgroundTint="@color/accent"
         android:text="Start Remote Server"
         android:textAllCaps="false"
@@ -157,7 +157,7 @@
         android:id="@+id/btnScanQr"
         android:layout_width="match_parent"
         android:layout_height="54dp"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="10dp"
         android:backgroundTint="@color/card_bg"
         android:text="Scan PC QR Code"
         android:textAllCaps="false"
@@ -169,11 +169,45 @@
         android:id="@+id/btnEnableAccessibility"
         android:layout_width="match_parent"
         android:layout_height="48dp"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="10dp"
         android:backgroundTint="@color/card_border"
         android:text="Grant Input Permission"
         android:textAllCaps="false"
         android:textColor="@color/text_primary"
         android:textSize="13sp" />
+
+    <!-- Bottom Actions: GitHub & About -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btnGithubRepo"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:backgroundTint="@color/card_bg"
+            android:drawableStart="@drawable/ic_github"
+            android:paddingHorizontal="14dp"
+            android:text=" GitHub"
+            android:textAllCaps="false"
+            android:textColor="@color/text_primary"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/btnAboutApp"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:layout_marginStart="6dp"
+            android:backgroundTint="@color/card_bg"
+            android:text="About Veyqo"
+            android:textAllCaps="false"
+            android:textColor="@color/text_primary"
+            android:textSize="13sp" />
+    </LinearLayout>
 
 </LinearLayout>

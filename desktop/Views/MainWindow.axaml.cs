@@ -100,6 +100,26 @@ public partial class MainWindow : Window
         ConnectButton.Click += async (_, _) => await HandleConnectAsync();
         DisconnectButton.Click += async (_, _) => await HandleDisconnectAsync();
 
+        GithubButton.Click += (_, _) =>
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "https://github.com/SyntX34/Veyqo",
+                    UseShellExecute = true
+                });
+            }
+            catch
+            {
+            }
+        };
+
+        AboutButton.Click += (_, _) =>
+        {
+            StatusText.Text = $"Veyqo v{VersionInfo.Version} by Samir Neupane (SyntX34)";
+        };
+
         ThemeModeButton.Click += (_, _) =>
         {
             _isFollowSystemTheme = false;

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="veyqo-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#1e1b4b" />
+      <stop offset="100%" stop-color="#090d16" />
+    </linearGradient>
+    <linearGradient id="veyqo-accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="50%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#a855f7" />
+    </linearGradient>
+    <linearGradient id="veyqo-glow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0.2" />
+    </linearGradient>
+    <filter id="subtle-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.4" />
+    </filter>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="512" height="512" rx="112" fill="url(#veyqo-bg)" />
+
+  <!-- Outer Rounded Geometric Frame -->
+  <rect x="36" y="36" width="440" height="440" rx="92" fill="none" stroke="#334155" stroke-width="2" stroke-opacity="0.4" />
+
+  <!-- Stylized V Dynamic Wings (Device Connection Metaphor) -->
+  <g filter="url(#subtle-shadow)">
+    <!-- Left Wing (Desktop/Base Anchor) -->
+    <path d="M120 148 L220 372 C236 408 276 408 292 372 L392 148 C400 130 384 112 364 112 L312 112 C300 112 288 120 284 132 L256 220 L228 132 C224 120 212 112 200 112 L148 112 C128 112 112 130 120 148 Z" 
+          fill="url(#veyqo-accent)" />
+
+    <!-- Central Signal & Port Node (Interconnection Core) -->
+    <circle cx="256" cy="276" r="28" fill="#ffffff" fill-opacity="0.95" />
+    <circle cx="256" cy="276" r="14" fill="#0f172a" />
+    <circle cx="256" cy="276" r="6" fill="#38bdf8" />
+
+    <!-- Pulse Wave Arcs (Local Remote Control Indicator) -->
+    <path d="M212 248 C224 236 240 228 256 228 C272 228 288 236 300 248" 
+          fill="none" stroke="#38bdf8" stroke-width="6" stroke-linecap="round" stroke-opacity="0.9" />
+    <path d="M192 224 C210 208 232 198 256 198 C280 198 302 208 320 224" 
+          fill="none" stroke="#a855f7" stroke-width="6" stroke-linecap="round" stroke-opacity="0.75" />
+  </g>
+
+  <!-- Modern Corner Connection Nodes -->
+  <circle cx="140" cy="120" r="7" fill="#38bdf8" />
+  <circle cx="372" cy="120" r="7" fill="#a855f7" />
+</svg>
