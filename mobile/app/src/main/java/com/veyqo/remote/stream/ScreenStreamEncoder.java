@@ -138,18 +138,33 @@ public class ScreenStreamEncoder {
         }, backgroundHandler);
 
         try {
+            int flags = DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR;
             virtualDisplay = mediaProjection.createVirtualDisplay(
                     "VeyqoStream",
                     width,
                     height,
                     dpi,
-                    DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                    flags,
                     imageReader.getSurface(),
                     null,
                     backgroundHandler
             );
         } catch (Exception e) {
-            stop();
+            try {
+                /* Safe fallback flag for OEM display drivers that reject AUTO_MIRROR */
+                virtualDisplay = mediaProjection.createVirtualDisplay(
+                        "VeyqoStream",
+                        width,
+                        height,
+                        dpi,
+                        DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
+                        imageReader.getSurface(),
+                        null,
+                        backgroundHandler
+                );
+            } catch (Exception ignored) {
+                stop();
+            }
         }
     }
 

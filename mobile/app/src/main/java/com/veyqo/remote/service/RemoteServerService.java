@@ -71,7 +71,19 @@ public class RemoteServerService extends Service {
             }
 
             int resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0);
-            Intent resultData = intent.getParcelableExtra(EXTRA_RESULT_DATA);
+            Intent resultData = null;
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    resultData = intent.getParcelableExtra(EXTRA_RESULT_DATA, Intent.class);
+                } else {
+                    resultData = intent.getParcelableExtra(EXTRA_RESULT_DATA);
+                }
+            } catch (Exception e) {
+                try {
+                    resultData = intent.getParcelableExtra(EXTRA_RESULT_DATA);
+                } catch (Exception ignored) {
+                }
+            }
 
             startForegroundNotification();
 
@@ -129,8 +141,7 @@ public class RemoteServerService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             int serviceType = 0;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                serviceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
-                        | ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
+                serviceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
             }
             startForeground(101, notification, serviceType);
         } else {

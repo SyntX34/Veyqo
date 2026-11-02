@@ -69,6 +69,26 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
+            try {
+                java.io.StringWriter sw = new java.io.StringWriter();
+                throwable.printStackTrace(new java.io.PrintWriter(sw));
+                String stackTrace = sw.toString();
+                android.util.Log.e("VeyqoCrash", stackTrace);
+
+                java.io.File logFile = new java.io.File(getExternalFilesDir(null), "crash.log");
+                java.io.FileWriter writer = new java.io.FileWriter(logFile, false);
+                writer.write("Veyqo v" + appVersion + " Crash Log\n");
+                writer.write("Device: " + Build.MANUFACTURER + " " + Build.MODEL + " (SDK " + Build.VERSION.SDK_INT + ")\n\n");
+                writer.write(stackTrace);
+                writer.close();
+            } catch (Exception ignored) {
+            }
+            android.os.Process.killProcess(android.os.Process.myPid());
+            System.exit(10);
+        });
+
         setContentView(R.layout.activity_main);
 
         drawerLayout = findViewById(R.id.drawerLayout);
@@ -115,6 +135,36 @@ public class MainActivity extends AppCompatActivity {
         });
 
         btnAboutApp.setOnClickListener(v -> showAboutDialog());
+        checkAndShowLastCrashLog();
+    }
+
+    private void checkAndShowLastCrashLog() {
+        try {
+            java.io.File logFile = new java.io.File(getExternalFilesDir(null), "crash.log");
+            if (logFile.exists() && logFile.length() > 0) {
+                java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(logFile));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line).append("\n");
+                }
+                reader.close();
+
+                new AlertDialog.Builder(this)
+                        .setTitle("Previous Crash Diagnostic")
+                        .setMessage(sb.toString())
+                        .setPositiveButton("Dismiss", (d, w) -> logFile.delete())
+                        .setNeutralButton("Copy", (d, w) -> {
+                            android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                            if (cm != null) {
+                                cm.setPrimaryClip(android.content.ClipData.newPlainText("Veyqo Crash Log", sb.toString()));
+                                Toast.makeText(this, "Copied crash log to clipboard", Toast.LENGTH_SHORT).show();
+                            }
+                        })
+                        .show();
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     private void checkAndRequestAppPermissions() {
