@@ -1,9 +1,11 @@
 package com.veyqo.remote;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Build;
@@ -14,9 +16,12 @@ import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import com.google.zxing.integration.android.IntentIntegrator;
 import com.google.zxing.integration.android.IntentResult;
@@ -24,6 +29,7 @@ import com.veyqo.remote.service.RemoteServerService;
 
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -32,6 +38,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String PREFS_NAME = "veyqo_theme_prefs";
     private static final String KEY_THEME_MODE = "theme_mode";
     private static final String GITHUB_REPO_URL = "https://github.com/SyntX34/Veyqo";
+    private static final int PERMISSION_REQUEST_CODE = 1001;
 
     private TextView textServerStatus;
     private TextView textIpAddress;
@@ -67,9 +74,10 @@ public class MainActivity extends AppCompatActivity {
 
         initVersionAndThemeBanner();
         updateIpAddress();
+        checkAndRequestAppPermissions();
 
         btnToggleServer.setOnClickListener(v -> toggleServer());
-        btnScanQr.setOnClickListener(v -> initiateQrScan());
+        btnScanQr.setOnClickListener(v -> initiateQrScanWithPermissionCheck());
         btnEnableAccessibility.setOnClickListener(v -> {
             Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
             startActivity(intent);
@@ -84,6 +92,43 @@ public class MainActivity extends AppCompatActivity {
         });
 
         btnAboutApp.setOnClickListener(v -> showAboutDialog());
+    }
+
+    private void checkAndRequestAppPermissions() {
+        List<String> neededPermissions = new ArrayList<>();
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            neededPermissions.add(Manifest.permission.CAMERA);
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                neededPermissions.add(Manifest.permission.POST_NOTIFICATIONS);
+            }
+        }
+
+        if (!neededPermissions.isEmpty()) {
+            ActivityCompat.requestPermissions(this, neededPermissions.toArray(new String[0]), PERMISSION_REQUEST_CODE);
+        }
+    }
+
+    private void initiateQrScanWithPermissionCheck() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, PERMISSION_REQUEST_CODE);
+            return;
+        }
+        initiateQrScan();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            boolean cameraGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+            if (cameraGranted && !isServerRunning) {
+                /* Camera is now ready for QR scanner */
+            }
+        }
     }
 
     private void initVersionAndThemeBanner() {
