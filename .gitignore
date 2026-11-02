@@ -1,0 +1,26 @@
+# Development & OS
+.idea/
+.vscode/*
+!.vscode/settings.json
+*.log
+bin/
+obj/
+dist/
+release-artifacts/
+
+# Desktop (.NET)
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Android / Gradle
+.gradle/
+build/
+mobile/build/
+mobile/app/build/
+mobile/local.properties
+*.apk
+*.aab

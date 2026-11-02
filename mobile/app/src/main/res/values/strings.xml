@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Veyqo</string>
+    <string name="accessibility_desc">Enables Veyqo to execute remote touch gestures and navigation inputs controlled from your desktop.</string>
+</resources>
