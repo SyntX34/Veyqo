@@ -29,6 +29,7 @@ import androidx.drawerlayout.widget.DrawerLayout;
 
 import com.google.zxing.integration.android.IntentIntegrator;
 import com.google.zxing.integration.android.IntentResult;
+import com.veyqo.remote.service.InputInjectionService;
 import com.veyqo.remote.service.RemoteServerService;
 
 import java.net.InetAddress;
