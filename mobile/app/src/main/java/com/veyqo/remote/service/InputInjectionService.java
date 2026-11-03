@@ -4,24 +4,28 @@ import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
 import android.graphics.Path;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
 /* Injects remote touches, gestures, text, and navigation keys requested by desktop */
 public class InputInjectionService extends AccessibilityService {
 
-    private static InputInjectionService instance;
+    private static final String TAG = "VeyqoInput";
+    private static volatile InputInjectionService instance;
 
     @Override
     public void onServiceConnected() {
         super.onServiceConnected();
         instance = this;
+        Log.i(TAG, "InputInjectionService connected and active");
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
         instance = null;
+        Log.i(TAG, "InputInjectionService destroyed");
     }
 
     @Override
@@ -39,26 +43,45 @@ public class InputInjectionService extends AccessibilityService {
     }
 
     public void injectTap(float x, float y) {
-        Path tapPath = new Path();
-        tapPath.moveTo(x, y);
-        GestureDescription.Builder builder = new GestureDescription.Builder();
-        builder.addStroke(new GestureDescription.StrokeDescription(tapPath, 0, 50));
-        dispatchGesture(builder.build(), null, null);
+        try {
+            Path tapPath = new Path();
+            tapPath.moveTo(x, y);
+            GestureDescription.Builder builder = new GestureDescription.Builder();
+            builder.addStroke(new GestureDescription.StrokeDescription(tapPath, 0, 50));
+            dispatchGesture(builder.build(), new GestureResultCallback() {
+                @Override
+                public void onCompleted(GestureDescription gestureDescription) {
+                    super.onCompleted(gestureDescription);
+                }
+
+                @Override
+                public void onCancelled(GestureDescription gestureDescription) {
+                    super.onCancelled(gestureDescription);
+                    Log.w(TAG, "injectTap cancelled by system at (" + x + "," + y + ")");
+                }
+            }, null);
+        } catch (Exception e) {
+            Log.e(TAG, "Error injecting tap: " + e.getMessage());
+        }
     }
 
     public void injectSwipe(float startX, float startY, float endX, float endY, long durationMs) {
-        if (durationMs <= 0) durationMs = 300;
-        Path swipePath = new Path();
-        swipePath.moveTo(startX, startY);
-        swipePath.lineTo(endX, endY);
-        GestureDescription.Builder builder = new GestureDescription.Builder();
-        builder.addStroke(new GestureDescription.StrokeDescription(swipePath, 0, durationMs));
-        dispatchGesture(builder.build(), null, null);
+        try {
+            if (durationMs <= 0) durationMs = 250;
+            Path swipePath = new Path();
+            swipePath.moveTo(startX, startY);
+            swipePath.lineTo(endX, endY);
+            GestureDescription.Builder builder = new GestureDescription.Builder();
+            builder.addStroke(new GestureDescription.StrokeDescription(swipePath, 0, durationMs));
+            dispatchGesture(builder.build(), null, null);
+        } catch (Exception e) {
+            Log.e(TAG, "Error injecting swipe: " + e.getMessage());
+        }
     }
 
     public void injectScroll(float centerX, float centerY, float deltaY) {
-        /* Scroll: Positive deltaY scrolls down (finger moves up) */
-        float scrollDistance = deltaY * 300f;
+        /* Scroll: Positive deltaY scrolls down (finger drags upwards) */
+        float scrollDistance = deltaY * 350f;
         float endY = centerY - scrollDistance;
         injectSwipe(centerX, centerY, centerX, endY, 200);
     }
@@ -81,40 +104,48 @@ public class InputInjectionService extends AccessibilityService {
 
     public void injectText(String text) {
         if (text == null || text.isEmpty()) return;
-        AccessibilityNodeInfo root = getRootInActiveWindow();
-        if (root == null) return;
+        try {
+            AccessibilityNodeInfo root = getRootInActiveWindow();
+            if (root == null) return;
 
-        AccessibilityNodeInfo focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
-        if (focused == null) {
-            focused = root.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY);
-        }
+            AccessibilityNodeInfo focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
+            if (focused == null) {
+                focused = root.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY);
+            }
 
-        if (focused != null) {
-            Bundle arguments = new Bundle();
-            CharSequence existingText = focused.getText();
-            String newText = (existingText != null ? existingText.toString() : "") + text;
-            arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, newText);
-            focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments);
-            focused.recycle();
+            if (focused != null) {
+                Bundle arguments = new Bundle();
+                CharSequence existingText = focused.getText();
+                String newText = (existingText != null ? existingText.toString() : "") + text;
+                arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, newText);
+                focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments);
+                focused.recycle();
+            }
+            root.recycle();
+        } catch (Exception e) {
+            Log.e(TAG, "Error injecting text: " + e.getMessage());
         }
-        root.recycle();
     }
 
     public void injectBackspace() {
-        AccessibilityNodeInfo root = getRootInActiveWindow();
-        if (root == null) return;
+        try {
+            AccessibilityNodeInfo root = getRootInActiveWindow();
+            if (root == null) return;
 
-        AccessibilityNodeInfo focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
-        if (focused != null) {
-            CharSequence existingText = focused.getText();
-            if (existingText != null && existingText.length() > 0) {
-                String newText = existingText.subSequence(0, existingText.length() - 1).toString();
-                Bundle arguments = new Bundle();
-                arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, newText);
-                focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments);
+            AccessibilityNodeInfo focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
+            if (focused != null) {
+                CharSequence existingText = focused.getText();
+                if (existingText != null && existingText.length() > 0) {
+                    String newText = existingText.subSequence(0, existingText.length() - 1).toString();
+                    Bundle arguments = new Bundle();
+                    arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, newText);
+                    focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments);
+                }
+                focused.recycle();
             }
-            focused.recycle();
+            root.recycle();
+        } catch (Exception e) {
+            Log.e(TAG, "Error injecting backspace: " + e.getMessage());
         }
-        root.recycle();
     }
 }

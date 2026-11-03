@@ -241,13 +241,21 @@ public class RemoteServerService extends Service {
 
     private void processPacket(ControlPacket packet, int screenWidth, int screenHeight) {
         InputInjectionService injectionService = InputInjectionService.getInstance();
-        if (injectionService == null || packet == null || screenWidth <= 0 || screenHeight <= 0) return;
+        if (packet == null || screenWidth <= 0 || screenHeight <= 0) return;
+
+        if (injectionService == null) {
+            android.util.Log.w("VeyqoServer", "Received control packet but InputInjectionService is not active/enabled");
+            return;
+        }
 
         float targetX = packet.x * screenWidth;
         float targetY = packet.y * screenHeight;
 
         switch (packet.type) {
             case ControlPacket.TYPE_TOUCH_DOWN:
+                /* Do not fire duplicate taps on touch down to avoid double tap conflicts */
+                break;
+
             case ControlPacket.TYPE_TOUCH_UP:
                 injectionService.injectTap(targetX, targetY);
                 break;

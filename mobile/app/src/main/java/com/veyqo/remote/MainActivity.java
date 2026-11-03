@@ -136,6 +136,24 @@ public class MainActivity extends AppCompatActivity {
 
         btnAboutApp.setOnClickListener(v -> showAboutDialog());
         checkAndShowLastCrashLog();
+        updateAccessibilityButtonState();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        updateAccessibilityButtonState();
+    }
+
+    private void updateAccessibilityButtonState() {
+        boolean isEnabled = InputInjectionService.getInstance() != null;
+        if (isEnabled) {
+            btnEnableAccessibility.setText("✓ Remote Control Enabled");
+            btnEnableAccessibility.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#10B981")));
+        } else {
+            btnEnableAccessibility.setText("Grant Input Permission (Required for Control)");
+            btnEnableAccessibility.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#E11D48")));
+        }
     }
 
     private void checkAndShowLastCrashLog() {
