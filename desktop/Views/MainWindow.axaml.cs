@@ -181,8 +181,6 @@ public partial class MainWindow : Window
             StatusText.Text = $"Status: Connected ({remoteEndpoint})";
             ConnectButton.IsVisible = false;
             DisconnectButton.IsVisible = true;
-            StandbyPanel.IsVisible = false;
-            ViewportBorder.IsVisible = true;
             RemoteScreenImage.Focus();
         });
     }
@@ -208,8 +206,6 @@ public partial class MainWindow : Window
             StatusText.Text = "Status: Connected";
             ConnectButton.IsVisible = false;
             DisconnectButton.IsVisible = true;
-            StandbyPanel.IsVisible = false;
-            ViewportBorder.IsVisible = true;
             RemoteScreenImage.Focus();
         }
         catch (Exception ex)

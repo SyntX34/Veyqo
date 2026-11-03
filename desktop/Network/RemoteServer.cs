@@ -60,25 +60,17 @@ public sealed class RemoteServer : IAsyncDisposable
         {
             while (!token.IsCancellationRequested && stream != null)
             {
-                int read = await stream.ReadAsync(lengthBuffer.AsMemory(0, 4), token);
-                if (read < 4) break;
+                int readBytes = await ReadExactAsync(stream, lengthBuffer, 0, 4, token);
+                if (readBytes == 0) break;
 
                 int packetLength = BitConverter.ToInt32(lengthBuffer, 0);
                 if (packetLength <= 0 || packetLength > 10 * 1024 * 1024) break;
 
                 byte[] buffer = new byte[packetLength];
-                int total = 0;
-                while (total < packetLength)
-                {
-                    int r = await stream.ReadAsync(buffer.AsMemory(total, packetLength - total), token);
-                    if (r == 0) break;
-                    total += r;
-                }
+                int totalRead = await ReadExactAsync(stream, buffer, 0, packetLength, token);
+                if (totalRead < packetLength) break;
 
-                if (total == packetLength)
-                {
-                    OnFrameReceived?.Invoke(buffer);
-                }
+                OnFrameReceived?.Invoke(buffer);
             }
         }
         catch
@@ -88,6 +80,18 @@ public sealed class RemoteServer : IAsyncDisposable
         {
             OnDisconnected?.Invoke();
         }
+    }
+
+    private static async Task<int> ReadExactAsync(NetworkStream stream, byte[] buffer, int offset, int count, CancellationToken token)
+    {
+        int totalRead = 0;
+        while (totalRead < count)
+        {
+            int read = await stream.ReadAsync(buffer.AsMemory(offset + totalRead, count - totalRead), token);
+            if (read == 0) return totalRead;
+            totalRead += read;
+        }
+        return totalRead;
     }
 
     public async Task SendPacketAsync(ControlPacket packet)
@@ -112,4 +116,3 @@ public sealed class RemoteServer : IAsyncDisposable
         await Task.CompletedTask;
     }
 }
-

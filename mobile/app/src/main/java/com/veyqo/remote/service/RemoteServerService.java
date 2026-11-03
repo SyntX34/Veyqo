@@ -103,6 +103,8 @@ public class RemoteServerService extends Service {
                 String host = intent.getStringExtra(EXTRA_HOST);
                 int port = intent.getIntExtra(EXTRA_PORT, DEFAULT_PORT);
                 if (host != null && !host.isEmpty()) {
+                    /* Also start local server listener in background so PC can connect in either direction */
+                    startServer();
                     connectToDesktop(host, port);
                     return START_STICKY;
                 }
