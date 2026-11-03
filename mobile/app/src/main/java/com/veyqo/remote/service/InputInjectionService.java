@@ -148,4 +148,73 @@ public class InputInjectionService extends AccessibilityService {
             Log.e(TAG, "Error injecting backspace: " + e.getMessage());
         }
     }
+
+    public void injectSelectAll() {
+        try {
+            AccessibilityNodeInfo root = getRootInActiveWindow();
+            if (root == null) return;
+
+            AccessibilityNodeInfo focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
+            if (focused != null && focused.isEditable()) {
+                CharSequence text = focused.getText();
+                int len = text != null ? text.length() : 0;
+                Bundle arguments = new Bundle();
+                arguments.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, 0);
+                arguments.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, len);
+                focused.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, arguments);
+                focused.recycle();
+            }
+            root.recycle();
+        } catch (Exception e) {
+            Log.e(TAG, "Error injecting select all: " + e.getMessage());
+        }
+    }
+
+    public void injectCopy() {
+        try {
+            AccessibilityNodeInfo root = getRootInActiveWindow();
+            if (root == null) return;
+
+            AccessibilityNodeInfo focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
+            if (focused != null) {
+                focused.performAction(AccessibilityNodeInfo.ACTION_COPY);
+                focused.recycle();
+            }
+            root.recycle();
+        } catch (Exception e) {
+            Log.e(TAG, "Error injecting copy: " + e.getMessage());
+        }
+    }
+
+    public void injectCut() {
+        try {
+            AccessibilityNodeInfo root = getRootInActiveWindow();
+            if (root == null) return;
+
+            AccessibilityNodeInfo focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
+            if (focused != null && focused.isEditable()) {
+                focused.performAction(AccessibilityNodeInfo.ACTION_CUT);
+                focused.recycle();
+            }
+            root.recycle();
+        } catch (Exception e) {
+            Log.e(TAG, "Error injecting cut: " + e.getMessage());
+        }
+    }
+
+    public void injectPaste() {
+        try {
+            AccessibilityNodeInfo root = getRootInActiveWindow();
+            if (root == null) return;
+
+            AccessibilityNodeInfo focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
+            if (focused != null && focused.isEditable()) {
+                focused.performAction(AccessibilityNodeInfo.ACTION_PASTE);
+                focused.recycle();
+            }
+            root.recycle();
+        } catch (Exception e) {
+            Log.e(TAG, "Error injecting paste: " + e.getMessage());
+        }
+    }
 }

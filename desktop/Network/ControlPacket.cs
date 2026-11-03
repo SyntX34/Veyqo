@@ -20,7 +20,11 @@ public enum ControlMessageType
     ClipboardSync = 13,
     FileChunk = 14,
     DeviceMetrics = 15,
-    Disconnect = 16
+    Disconnect = 16,
+    SelectAll = 17,
+    Copy = 18,
+    Cut = 19,
+    Paste = 20
 }
 
 public sealed class ControlPacket

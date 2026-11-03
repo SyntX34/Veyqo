@@ -298,6 +298,22 @@ public class RemoteServerService extends Service {
                 injectionService.injectRecents();
                 break;
 
+            case ControlPacket.TYPE_SELECT_ALL:
+                injectionService.injectSelectAll();
+                break;
+
+            case ControlPacket.TYPE_COPY:
+                injectionService.injectCopy();
+                break;
+
+            case ControlPacket.TYPE_CUT:
+                injectionService.injectCut();
+                break;
+
+            case ControlPacket.TYPE_PASTE:
+                injectionService.injectPaste();
+                break;
+
             case ControlPacket.TYPE_CLIPBOARD_SYNC:
                 if (packet.payload != null) {
                     try {

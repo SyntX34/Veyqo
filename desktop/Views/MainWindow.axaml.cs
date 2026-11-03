@@ -455,9 +455,25 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 break;
 
-            /* Hardware Keyboard Mapping & Shortcuts: Ctrl+V for clipboard sync to mobile */
+            /* Shortcuts: Ctrl+A (Select All), Ctrl+C (Copy), Ctrl+X (Cut), Ctrl+V (Paste & Clipboard Sync) */
+            case Key.A when e.KeyModifiers.HasFlag(KeyModifiers.Control):
+                SendControlPacket(new ControlPacket { Type = ControlMessageType.SelectAll });
+                e.Handled = true;
+                break;
+
+            case Key.C when e.KeyModifiers.HasFlag(KeyModifiers.Control):
+                SendControlPacket(new ControlPacket { Type = ControlMessageType.Copy });
+                e.Handled = true;
+                break;
+
+            case Key.X when e.KeyModifiers.HasFlag(KeyModifiers.Control):
+                SendControlPacket(new ControlPacket { Type = ControlMessageType.Cut });
+                e.Handled = true;
+                break;
+
             case Key.V when e.KeyModifiers.HasFlag(KeyModifiers.Control):
                 _ = SyncClipboardToMobileAsync();
+                SendControlPacket(new ControlPacket { Type = ControlMessageType.Paste });
                 e.Handled = true;
                 break;
         }

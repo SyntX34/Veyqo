@@ -51,4 +51,8 @@ public class ControlPacket {
     public static final int TYPE_NAV_RECENTS = 12;
     public static final int TYPE_CLIPBOARD_SYNC = 13;
     public static final int TYPE_FILE_CHUNK = 14;
+    public static final int TYPE_SELECT_ALL = 17;
+    public static final int TYPE_COPY = 18;
+    public static final int TYPE_CUT = 19;
+    public static final int TYPE_PASTE = 20;
 }
