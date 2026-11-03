@@ -288,6 +288,35 @@ public class RemoteServerService extends Service {
                 injectionService.injectRecents();
                 break;
 
+            case ControlPacket.TYPE_CLIPBOARD_SYNC:
+                if (packet.payload != null) {
+                    try {
+                        android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                        if (cm != null) {
+                            android.content.ClipData clip = android.content.ClipData.newPlainText("Veyqo Clipboard", packet.payload);
+                            cm.setPrimaryClip(clip);
+                        }
+                    } catch (Exception ignored) {
+                    }
+                }
+                break;
+
+            case ControlPacket.TYPE_FILE_CHUNK:
+                if (packet.fileName != null && packet.fileData != null) {
+                    try {
+                        byte[] rawBytes = android.util.Base64.decode(packet.fileData, android.util.Base64.DEFAULT);
+                        java.io.File downloadDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS);
+                        if (!downloadDir.exists()) downloadDir.mkdirs();
+                        java.io.File targetFile = new java.io.File(downloadDir, packet.fileName);
+                        java.io.FileOutputStream fos = new java.io.FileOutputStream(targetFile);
+                        fos.write(rawBytes);
+                        fos.flush();
+                        fos.close();
+                    } catch (Exception ignored) {
+                    }
+                }
+                break;
+
             default:
                 break;
         }

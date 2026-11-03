@@ -100,7 +100,8 @@
                 <!-- Remote Device Viewport & Navigation Bar -->
                 <Border Name="ViewportBorder" CornerRadius="12" ClipToBounds="True" IsVisible="False"
                         HorizontalAlignment="Center" VerticalAlignment="Center"
-                        BorderBrush="#475569" BorderThickness="1">
+                        BorderBrush="#475569" BorderThickness="1"
+                        DragDrop.AllowDrop="True">
                     <Grid RowDefinitions="*,44">
                         <Image Grid.Row="0" Name="RemoteScreenImage" Stretch="Uniform" Focusable="True"/>
                         

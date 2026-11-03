@@ -168,6 +168,10 @@ public partial class MainWindow : Window
         /* Keyboard input forwarding */
         KeyDown += HandleKeyDown;
         TextInput += HandleTextInput;
+
+        /* Drag and Drop File Transfer */
+        DragDrop.SetAllowDrop(ViewportBorder, true);
+        ViewportBorder.AddHandler(DragDrop.DropEvent, HandleFileDrop);
     }
 
     private void HandleServerClientConnected(string remoteEndpoint)
@@ -454,6 +458,69 @@ public partial class MainWindow : Window
                 });
                 e.Handled = true;
                 break;
+
+            /* Hardware Keyboard Mapping & Shortcuts: Ctrl+V for clipboard sync to mobile */
+            case Key.V when e.KeyModifiers.HasFlag(KeyModifiers.Control):
+                _ = SyncClipboardToMobileAsync();
+                e.Handled = true;
+                break;
+        }
+    }
+
+    private async Task SyncClipboardToMobileAsync()
+    {
+        try
+        {
+            var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+            if (clipboard != null)
+            {
+                string? text = await clipboard.GetTextAsync();
+                if (!string.IsNullOrEmpty(text))
+                {
+                    SendControlPacket(new ControlPacket
+                    {
+                        Type = ControlMessageType.ClipboardSync,
+                        Payload = text
+                    });
+                }
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private async void HandleFileDrop(object? sender, DragEventArgs e)
+    {
+        var files = e.Data.GetFiles();
+        if (files == null) return;
+
+        foreach (var file in files)
+        {
+            try
+            {
+                string? path = file.Path.LocalPath;
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                {
+                    FileInfo fi = new FileInfo(path);
+                    /* Transfer files up to 25MB over TCP packet */
+                    if (fi.Length <= 25 * 1024 * 1024)
+                    {
+                        byte[] fileBytes = await File.ReadAllBytesAsync(path);
+                        string base64 = Convert.ToBase64String(fileBytes);
+                        SendControlPacket(new ControlPacket
+                        {
+                            Type = ControlMessageType.FileChunk,
+                            FileName = fi.Name,
+                            FileData = base64
+                        });
+                        StatusText.Text = $"Status: Sent file {fi.Name}";
+                    }
+                }
+            }
+            catch
+            {
+            }
         }
     }
 }

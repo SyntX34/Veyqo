@@ -129,16 +129,17 @@ Veyqo/
 - [x] Centered error modal window on desktop for connection troubleshooting.
 - [x] Banking-style device authorization approval prompt upon QR scan.
 
-### Phase 3: Enhanced Input & Device Features (In Progress)
-- [ ] Hardware keyboard mapping (IME input, function keys, hotkeys).
-- [ ] Bi-directional shared clipboard sync (copy text on PC, paste on mobile and vice-versa).
-- [ ] Multi-touch gesture emulation (pinch-to-zoom, two-finger scroll).
-- [ ] Drag-and-drop file transfer over the local TCP channel.
+### Phase 3: Enhanced Input & Device Features (Completed)
+- [x] Hardware keyboard mapping (IME input, function keys, hotkeys, navigation arrows).
+- [x] Bi-directional shared clipboard sync (copy text on PC, sync/paste on mobile).
+- [x] Mouse wheel scroll & gesture emulation (continuous swipe, drag trajectories, Android nav bar).
+- [x] Drag-and-drop file transfer over the local TCP channel to mobile Downloads folder.
+- [x] Banking-style auto-focusing QR code scanner with haptic vibration feedback.
 
-### Phase 4: Security & Ecosystem
+### Phase 4: Security & Ecosystem (In Progress)
 - [ ] End-to-end TLS encryption with ephemeral certificate exchange during QR handshake.
 - [ ] Device authorization whitelist (remember trusted desktop controllers).
-- [ ] Audio streaming from mobile to desktop.
+- [ ] Audio streaming and microphone pass-through between PC and mobile.
 - [ ] macOS desktop client support via Avalonia.
 
 ---

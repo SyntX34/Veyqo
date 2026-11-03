@@ -17,8 +17,10 @@ public enum ControlMessageType
     NavBack = 10,
     NavHome = 11,
     NavRecents = 12,
-    DeviceMetrics = 13,
-    Disconnect = 14
+    ClipboardSync = 13,
+    FileChunk = 14,
+    DeviceMetrics = 15,
+    Disconnect = 16
 }
 
 public sealed class ControlPacket
@@ -46,6 +48,12 @@ public sealed class ControlPacket
 
     [JsonPropertyName("payload")]
     public string? Payload { get; set; }
+
+    [JsonPropertyName("fileName")]
+    public string? FileName { get; set; }
+
+    [JsonPropertyName("fileData")]
+    public string? FileData { get; set; }
 
     [JsonPropertyName("timestamp")]
     public long Timestamp { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();

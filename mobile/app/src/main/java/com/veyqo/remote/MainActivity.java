@@ -379,8 +379,8 @@ public class MainActivity extends AppCompatActivity {
             startService(intent);
         }
 
-        Toast.makeText(this, "Connecting to PC (" + host + ")...", Toast.LENGTH_LONG).show();
-        textServerStatus.setText("Connected to PC: " + host);
+        Toast.makeText(this, "Connecting to PC (" + host + ":" + port + ")...", Toast.LENGTH_LONG).show();
+        textServerStatus.setText("Connected to PC: " + host + ":" + port);
     }
 
     private String getDeviceIpAddress() {

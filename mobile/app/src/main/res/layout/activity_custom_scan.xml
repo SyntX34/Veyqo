@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#000000">
@@ -7,7 +8,10 @@
     <com.journeyapps.barcodescanner.DecoratedBarcodeView
         android:id="@+id/zxing_barcode_scanner"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        app:zxing_framing_rect_width="260dp"
+        app:zxing_framing_rect_height="260dp"
+        app:zxing_use_texture_view="true" />
 
     <TextView
         android:layout_width="wrap_content"
@@ -17,7 +21,7 @@
         android:background="#CC0F172A"
         android:paddingHorizontal="20dp"
         android:paddingVertical="10dp"
-        android:text="Point camera at Veyqo Desktop QR Code"
+        android:text="Align Veyqo QR Code inside frame"
         android:textColor="#FFFFFF"
         android:textSize="14sp"
         android:textStyle="bold" />

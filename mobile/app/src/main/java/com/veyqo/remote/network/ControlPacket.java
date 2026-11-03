@@ -28,6 +28,12 @@ public class ControlPacket {
     @SerializedName("payload")
     public String payload;
 
+    @SerializedName("fileName")
+    public String fileName;
+
+    @SerializedName("fileData")
+    public String fileData;
+
     @SerializedName("timestamp")
     public long timestamp;
 
@@ -43,4 +49,6 @@ public class ControlPacket {
     public static final int TYPE_NAV_BACK = 10;
     public static final int TYPE_NAV_HOME = 11;
     public static final int TYPE_NAV_RECENTS = 12;
+    public static final int TYPE_CLIPBOARD_SYNC = 13;
+    public static final int TYPE_FILE_CHUNK = 14;
 }
